@@ -1,12 +1,76 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 )
+
+func cleanConfigDir(configDir string) error {
+	dirEntries, err := os.ReadDir(configDir)
+	if err != nil {
+		// If directory does not exist, create it
+		if os.IsNotExist(err) {
+			return os.MkdirAll(configDir, 0755)
+		}
+		return err
+	}
+
+	for _, entry := range dirEntries {
+		err = os.RemoveAll(filepath.Join(configDir, entry.Name()))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func downloadAndSplitCheatSheets(url, configDir string) error {
+	// Download big JSON file
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("failed to download cheat sheet JSON: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("bad status downloading cheat sheet JSON: %s", resp.Status)
+	}
+
+	// Read all content
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read cheat sheet JSON: %w", err)
+	}
+
+	// Parse into a map[string]interface{} (or map[string]json.RawMessage for better control)
+	var allCheats map[string]json.RawMessage
+	if err := json.Unmarshal(body, &allCheats); err != nil {
+		return fmt.Errorf("failed to parse cheat sheet JSON: %w", err)
+	}
+
+	// Clean configDir before writing (implement your cleaning function)
+	if err := cleanConfigDir(configDir); err != nil {
+		return fmt.Errorf("failed to clean config directory: %w", err)
+	}
+
+	// For each tool, write a separate JSON file
+	for tool, cheatData := range allCheats {
+		toolFile := filepath.Join(configDir, tool+".json")
+		if err := os.WriteFile(toolFile, cheatData, 0644); err != nil {
+			return fmt.Errorf("failed to write cheat sheet for %s: %w", tool, err)
+		}
+		fmt.Printf("Written cheat sheet for: %s\n", tool)
+	}
+
+	return nil
+}
 
 func getCheatConfigDir() string {
 	var configDir string
@@ -155,6 +219,17 @@ func main() {
 		helpFunc()
 		os.Exit(0)
 	}
+	if slices.Contains([]string{"--reset", "--get-default"}, args[0]) {
+		configDir := getCheatConfigDir()
+		url := "https://raw.githubusercontent.com/pavandhadge/tref/main/defaultCheatsheets/devtools.json"
+		if err := downloadAndSplitCheatSheets(url, configDir); err != nil {
+			fmt.Println("Failed to fetch default cheat sheets:", err)
+			os.Exit(1)
+		}
+		fmt.Println("Default cheat sheets downloaded and applied.")
+		os.Exit(0)
+	}
+
 	mode := "--read"
 	if len(args) >= 2 {
 		mode = args[1]

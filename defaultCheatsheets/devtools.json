@@ -1,0 +1,142 @@
+{
+  "docker": {
+    "Images": {
+      "List local images": "docker images",
+      "Pull image from Docker Hub": "docker pull <image-name>",
+      "Remove image": "docker rmi <image-name>",
+      "Build image from Dockerfile": "docker build -t <image-name> ."
+    },
+    "Containers": {
+      "Run container (interactive)": "docker run -it <image-name>",
+      "Run container (detached)": "docker run -d <image-name>",
+      "List running containers": "docker ps",
+      "List all containers": "docker ps -a",
+      "Stop container": "docker stop <container-id>",
+      "Remove container": "docker rm <container-id>",
+      "Execute command in running container": "docker exec -it <container-id> <command>"
+    },
+    "Volumes & Networks": {
+      "Create volume": "docker volume create <volume-name>",
+      "List volumes": "docker volume ls",
+      "Create user-defined network": "docker network create <network-name>",
+      "Connect container to network": "docker network connect <network-name> <container-id>"
+    },
+    "Inspect & Logs": {
+      "Inspect container details": "docker inspect <container-id>",
+      "View container logs": "docker logs <container-id>"
+    },
+    "Compose": {
+      "Start services": "docker-compose up",
+      "Start in detached mode": "docker-compose up -d",
+      "Stop services": "docker-compose down",
+      "Build services": "docker-compose build"
+    },
+    "Clean Up": {
+      "Remove all stopped containers": "docker container prune",
+      "Remove all unused images": "docker image prune -a"
+    }
+  },
+
+  "curl": {
+    "Basic Usage": {
+      "GET request": "curl http://example.com",
+      "Download file": "curl -O http://example.com/file.zip",
+      "Follow redirects": "curl -L http://example.com"
+    },
+    "Headers & Data": {
+      "Send custom header": "curl -H \"X-Header: value\" http://example.com",
+      "Send POST data (form)": "curl -d \"key=value\" http://example.com",
+      "Send POST JSON": "curl -H \"Content-Type: application/json\" -d '{\"key\": \"value\"}' http://example.com"
+    },
+    "Authentication": {
+      "Basic Auth": "curl -u username:password http://example.com",
+      "Bearer Token": "curl -H \"Authorization: Bearer <token>\" http://example.com"
+    },
+    "Advanced": {
+      "Save output to file": "curl -o output.txt http://example.com",
+      "Show only response headers": "curl -I http://example.com",
+      "Measure time details": "curl -w \"Time: %{time_total}\\n\" -o /dev/null -s http://example.com"
+    }
+  },
+
+  "nmap": {
+    "Basic Scanning": {
+      "Scan single target": "nmap 192.168.1.1",
+      "Scan multiple targets": "nmap 192.168.1.1 192.168.1.2",
+      "Scan subnet": "nmap 192.168.1.0/24"
+    },
+    "Port Scanning": {
+      "Scan specific ports": "nmap -p 22,80,443 192.168.1.1",
+      "Scan all 65535 ports": "nmap -p- 192.168.1.1",
+      "Detect open ports and services": "nmap -sV 192.168.1.1"
+    },
+    "Operating System Detection": {
+      "OS Detection": "nmap -O 192.168.1.1",
+      "Aggressive Scan (OS + version + scripts)": "nmap -A 192.168.1.1"
+    },
+    "Stealth and Evade": {
+      "TCP SYN scan (stealth)": "nmap -sS 192.168.1.1",
+      "Use decoy IP": "nmap -D RND:10 192.168.1.1"
+    },
+    "Output": {
+      "Save as normal file": "nmap -oN output.txt 192.168.1.1",
+      "Save as XML": "nmap -oX output.xml 192.168.1.1",
+      "Save all formats": "nmap -oA output 192.168.1.1"
+    }
+  },
+  "git": {
+    "Git Cheatsheet": {
+      "Setup": {
+        "Set username": "git config --global user.name \"Your Name\"",
+        "Set email": "git config --global user.email \"you@example.com\"",
+        "Check settings": "git config --list"
+      },
+      "Getting Started": {
+        "Initialize a repository": "git init",
+        "Clone a repository": "git clone https://github.com/user/repo.git"
+      },
+      "Basic Snapshotting": {
+        "Check status": "git status",
+        "Add files to staging": "git add <file>",
+        "Add all files": "git add .",
+        "Commit changes": "git commit -m \"commit message\""
+      },
+      "Branching and Merging": {
+        "List branches": "git branch",
+        "Create new branch": "git branch <branch-name>",
+        "Switch branch": "git checkout <branch-name>",
+        "Create and switch": "git checkout -b <branch-name>",
+        "Merge branch": "git merge <branch-name>",
+        "Delete branch": "git branch -d <branch-name>"
+      },
+      "Remote Repositories": {
+        "Add remote": "git remote add origin <url>",
+        "View remotes": "git remote -v",
+        "Push to remote": "git push origin <branch-name>",
+        "Pull from remote": "git pull origin <branch-name>",
+        "Fetch changes": "git fetch"
+      },
+      "Inspect and Compare": {
+        "Show commit log": "git log",
+        "Show changes": "git diff",
+        "Show commit details": "git show <commit-id>"
+      },
+      "Undo and Reset": {
+        "Unstage a file": "git reset <file>",
+        "Undo last commit (keep changes)": "git reset --soft HEAD~1",
+        "Undo last commit (discard changes)": "git reset --hard HEAD~1"
+      },
+      "Stashing": {
+        "Stash changes": "git stash",
+        "List stashes": "git stash list",
+        "Apply stash": "git stash apply",
+        "Pop stash": "git stash pop"
+      },
+      "Tagging": {
+        "Create tag": "git tag <tag-name>",
+        "Push tag": "git push origin <tag-name>",
+        "List tags": "git tag"
+      }
+    }
+  }
+}
