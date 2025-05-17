@@ -1,251 +1,117 @@
-package main
+Here's a complete and updated `README.md` for your `tref` cheat config tool based on the code you provided:
 
-import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"slices"
-)
+---
 
-func cleanConfigDir(configDir string) error {
-	dirEntries, err := os.ReadDir(configDir)
-	if err != nil {
-		// If directory does not exist, create it
-		if os.IsNotExist(err) {
-			return os.MkdirAll(configDir, 0755)
-		}
-		return err
-	}
+# `tref` – Terminal Reference Manager
 
-	for _, entry := range dirEntries {
-		err = os.RemoveAll(filepath.Join(configDir, entry.Name()))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+`tref` is a command-line utility to manage personal **cheat sheets** for different developer tools. It provides quick access to custom or default command references, config snippets, and usage examples — all stored locally in OS-specific configuration directories.
 
-func downloadAndSplitCheatSheets(url, configDir string) error {
-	// Download big JSON file
-	resp, err := http.Get(url)
-	if err != nil {
-		return fmt.Errorf("failed to download cheat sheet JSON: %w", err)
-	}
-	defer resp.Body.Close()
+## ✨ Features
 
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("bad status downloading cheat sheet JSON: %s", resp.Status)
-	}
+* 📖 Read (`--read`) cheat sheets
+* 📝 Edit (`--edit`) cheat sheets using your terminal editor
+* 🆕 Add (`--add`) new cheat sheets
+* ❌ Delete (`--delete`) existing cheat sheets
+* 🔁 Reset to defaults (`--reset` or `--get-default`) from GitHub
+* ❓ Display help info (`--help`)
 
-	// Read all content
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read cheat sheet JSON: %w", err)
-	}
+## 📁 Cheat Sheet Storage
 
-	// Parse into a map[string]interface{} (or map[string]json.RawMessage for better control)
-	var allCheats map[string]json.RawMessage
-	if err := json.Unmarshal(body, &allCheats); err != nil {
-		return fmt.Errorf("failed to parse cheat sheet JSON: %w", err)
-	}
+Cheat sheets are stored in an OS-specific config directory under `tref/`:
 
-	// Clean configDir before writing (implement your cleaning function)
-	if err := cleanConfigDir(configDir); err != nil {
-		return fmt.Errorf("failed to clean config directory: %w", err)
-	}
+| OS      | Config Directory                            |
+| ------- | ------------------------------------------- |
+| Linux   | `$XDG_CONFIG_HOME/tref` or `~/.config/tref` |
+| macOS   | `$XDG_CONFIG_HOME/tref` or `~/.config/tref` |
+| Windows | `%AppData%\tref`                            |
 
-	// For each tool, write a separate JSON file
-	for tool, cheatData := range allCheats {
-		toolFile := filepath.Join(configDir, tool+".json")
-		if err := os.WriteFile(toolFile, cheatData, 0644); err != nil {
-			return fmt.Errorf("failed to write cheat sheet for %s: %w", tool, err)
-		}
-		fmt.Printf("Written cheat sheet for: %s\n", tool)
-	}
+Each cheat sheet is stored as a `toolname.json` file.
 
-	return nil
-}
+## 🛠 Usage
 
-func getCheatConfigDir() string {
-	var configDir string
+```bash
+tref <toolname> [--read | --edit | --add | --delete]
+```
 
-	if runtime.GOOS != "windows" {
-		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-			configDir = filepath.Join(xdg, "tref")
-		} else {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				fmt.Println("Failed to get home directory:", err)
-				os.Exit(1)
-			}
-			configDir = filepath.Join(home, ".config", "tref")
-		}
-	} else {
-		if appData := os.Getenv("AppData"); appData != "" {
-			configDir = filepath.Join(appData, "tref")
-		} else {
-			fmt.Println("No valid config directory found")
-			os.Exit(1)
-		}
-	}
+Or for global operations:
 
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		fmt.Println("Failed to create config directory:", err)
-		os.Exit(1)
-	}
+```bash
+tref [--reset | --get-default | --help]
+```
 
-	return configDir
-}
+### ✅ Examples
 
-func openEditor(filePath, editor string) error {
-	cmd := exec.Command(editor, filePath)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
+```bash
+# View a cheat sheet for git
+tref git --read
 
-func readCheatSheet(args []string) {
-	if len(args) < 1 {
-		fmt.Println("Please provide a tool name to read.")
-		os.Exit(1)
-	}
-	configDir := getCheatConfigDir()
-	filePath := filepath.Join(configDir, args[0]+".json")
+# Edit a cheat sheet for docker
+tref docker --edit
 
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		fmt.Printf("Failed to read cheat sheet for '%s': %v\n", args[0], err)
-		os.Exit(1)
-	}
+# Create a new cheat sheet for kubectl
+tref kubectl --add
 
-	fmt.Printf("Cheat Sheet for %s:\n%s\n", args[0], string(data))
-}
+# Delete an existing cheat sheet for terraform
+tref terraform --delete
 
-func editCheatSheet(args []string) {
-	if len(args) < 1 {
-		fmt.Println("Please provide a tool name to edit.")
-		os.Exit(1)
-	}
-	configDir := getCheatConfigDir()
-	filePath := filepath.Join(configDir, args[0]+".json")
+# Reset all cheat sheets to official defaults
+tref --reset
 
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "nano"
-	}
+# Get help/usage info
+tref --help
+```
 
-	if err := openEditor(filePath, editor); err != nil {
-		fmt.Println("Failed to open editor:", err)
-		os.Exit(1)
-	}
-}
+## 🔄 Reset to Defaults
 
-func addCheatSheet(args []string) {
-	if len(args) < 1 {
-		fmt.Println("Please provide a tool name to add.")
-		os.Exit(1)
-	}
-	configDir := getCheatConfigDir()
-	filePath := filepath.Join(configDir, args[0]+".json")
+You can fetch a full set of prebuilt cheat sheets from the following GitHub JSON:
 
-	file, err := os.Create(filePath)
-	if err != nil {
-		fmt.Printf("Error creating file %s: %v\n", filePath, err)
-		os.Exit(1)
-	}
-	defer file.Close()
+```
+https://raw.githubusercontent.com/pavandhadge/tref/main/defaultCheatsheets/devtools.json
+```
 
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "nano"
-	}
+Use either of the following to reset your cheat sheets:
 
-	if err := openEditor(filePath, editor); err != nil {
-		fmt.Println("Failed to open editor:", err)
-		os.Exit(1)
-	}
-}
+```bash
+tref --reset
+# or
+tref --get-default
+```
 
-func deleteCheatSheet(args []string) {
-	if len(args) < 1 {
-		fmt.Println("Please provide a tool name to delete.")
-		os.Exit(1)
-	}
-	configDir := getCheatConfigDir()
-	filePath := filepath.Join(configDir, args[0]+".json")
+This will:
 
-	if err := os.Remove(filePath); err != nil {
-		fmt.Printf("Error deleting file %s: %v\n", filePath, err)
-		os.Exit(1)
-	}
+* Download the JSON
+* Wipe your existing local cheat sheets
+* Split the master file into individual `<tool>.json` files
 
-	fmt.Println("Cheat sheet deleted successfully.")
-}
+## 🖋 Environment Variables
 
-func helpFunc() {
-	fmt.Print(`Usage: tref <toolname> [--read|--edit|--add|--delete|--help]
+* `EDITOR`: Used to open `.json` files for `--edit` and `--add`.
 
-Available Commands:
-  --read      Read an existing cheat sheet
-  --edit      Edit an existing cheat sheet
-  --add       Create a new cheat sheet
-  --delete    Delete an existing cheat sheet
-  --help      Show this help message
+  * Defaults to `nano` if not set.
 
-Examples:
-  tref git --read       # View cheat sheet for git
-  tref curl --edit      # Edit cheat sheet for curl
-  tref make --add       # Create a new cheat sheet for make
-  tref ls --delete      # Delete cheat sheet for ls
-  tref --help           # Show usage help
-`)
-}
+## ⚙ Functions Overview
 
-func main() {
-	args := os.Args[1:]
-	if len(args) < 1 {
-		fmt.Println("Usage: tref <toolname> [--read|--edit|--add|--delete]")
-		os.Exit(1)
-	}
+| Function                        | Description                                            |
+| ------------------------------- | ------------------------------------------------------ |
+| `getCheatConfigDir()`           | Detects OS and returns/creates the correct config path |
+| `readCheatSheet(args)`          | Displays contents of a cheat sheet                     |
+| `editCheatSheet(args)`          | Opens a cheat sheet for editing in terminal editor     |
+| `addCheatSheet(args)`           | Creates a new cheat sheet and opens it for editing     |
+| `deleteCheatSheet(args)`        | Removes a cheat sheet                                  |
+| `downloadAndSplitCheatSheets()` | Downloads master JSON and splits into individual files |
+| `cleanConfigDir()`              | Clears all current cheat sheets from config directory  |
 
-	if args[0] == "--help" {
-		helpFunc()
-		os.Exit(0)
-	}
-	if slices.Contains([]string{"--reset", "--get-default"}, args[0]) {
-		configDir := getCheatConfigDir()
-		url := "https://raw.githubusercontent.com/pavandhadge/tref/main/defaultCheatsheets/devtools.json"
-		if err := downloadAndSplitCheatSheets(url, configDir); err != nil {
-			fmt.Println("Failed to fetch default cheat sheets:", err)
-			os.Exit(1)
-		}
-		fmt.Println("Default cheat sheets downloaded and applied.")
-		os.Exit(0)
-	}
+## ❌ Error Handling
 
-	mode := "--read"
-	if len(args) >= 2 {
-		mode = args[1]
-	}
+* Graceful exit and message if:
 
-	switch mode {
-	case "--read":
-		readCheatSheet(args)
-	case "--edit":
-		editCheatSheet(args)
-	case "--add":
-		addCheatSheet(args)
-	case "--delete":
-		deleteCheatSheet(args)
-	default:
-		fmt.Printf("Invalid mode selected: %s\n", mode)
-		os.Exit(1)
-	}
-}
+  * Required tool name is missing
+  * File operations fail
+  * Invalid command is given
+* Automatically creates config directory if not found
+
+---
+
+This tool is ideal for developers who prefer **fast terminal-based access** to curated command references without browsing the web or switching context.
+
+> Built for speed. Works offline. Lives in your terminal.
