@@ -1,0 +1,117 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 25% 97%;
+    --foreground: 224 71% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+
+    --primary: 262 84% 75%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 199 76% 48%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 220 15% 95%;
+    --muted-foreground: 220 8% 46%;
+
+    --accent: 262 10% 90%;
+    --accent-foreground: 220 70% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 262 84% 75%;
+
+    --radius: 0.5rem;
+    
+    /* Linux-inspired terminal colors */
+    --terminal-bg: 224 30% 10%;
+    --terminal-text: 220 15% 95%;
+    --terminal-header: 224 25% 15%;
+    --terminal-accent: 262 84% 75%;
+  }
+
+  .dark {
+    --background: 224 30% 10%;
+    --foreground: 210 40% 98%;
+
+    --card: 224 25% 15%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 224 25% 15%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 262 84% 75%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 199 76% 48%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 223 20% 20%;
+    --muted-foreground: 210 40% 80%;
+
+    --accent: 216 30% 20%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 216 24% 25%;
+    --input: 216 24% 25%;
+    --ring: 262 84% 75%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Terminal-style blinking cursor */
+  .cursor::after {
+    content: '|';
+    animation: blink 1s step-start infinite;
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  /* Terminal window styles */
+  .terminal-header {
+    @apply flex items-center gap-2 relative bg-gradient-to-r from-[#9b87f5] to-[#1EAEDB] p-2 rounded-t-md;
+    padding-left: 10px;
+  }
+
+  .terminal-content {
+    @apply bg-[hsl(var(--terminal-bg))] text-[hsl(var(--terminal-text))] rounded-b-md p-4 shadow-md border border-[#9b87f5]/20;
+  }
+  
+  .section-title {
+    @apply text-2xl md:text-3xl font-mono font-bold inline-block;
+    text-shadow: 0 0 15px rgba(155, 135, 245, 0.5);
+  }
+}
+
