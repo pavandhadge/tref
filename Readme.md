@@ -1,90 +1,117 @@
-# Cheat Config Tool
-
-A command-line tool to manage cheat sheets (in JSON format) for various tools. The cheat sheets are stored in a cross-platform configuration directory, and this utility supports creating, editing, reading, and deleting these files.
-
-## Features
-
-* Create (`--add`) cheat sheet files
-* Edit (`--edit`) existing cheat sheets
-* Read (`--read`) the contents of cheat sheets
-* Delete (`--delete`) cheat sheets
-
-## File Storage
-
-Cheat sheets are saved in the user's OS-specific configuration directory under a subdirectory named `tref`:
-
-* Linux/macOS: `$XDG_CONFIG_HOME/tref` or `~/.config/tref`
-* Windows: `%AppData%\tref`
-
-## Usage
-
-```bash
-tref <toolname> [--read|--edit|--add|--delete]
-```
-
-### Examples
-
-```bash
-# Read a cheat sheet for "git"
-tref git --read
-
-# Edit a cheat sheet for "docker"
-tref docker --edit
-
-# Add a new cheat sheet for "kubectl"
-tref kubectl --add
-
-# Delete a cheat sheet for "terraform"
-tref terraform --delete
-```
-
-## Environment Variables
-
-* `EDITOR`: Used to open files. Defaults to `nano` if not set.
-
-## Function Descriptions
-
-### `getCheatConfigDir() string`
-
-Detects and returns the correct configuration directory based on the OS. Creates the directory if it doesn't exist.
-
-### `openEditor(filePath, editor string) error`
-
-Spawns a subprocess to open the specified file with the provided editor.
-
-### `readCheatSheet(args []string)`
-
-Reads and prints the contents of a cheat sheet.
-
-* Requires: `args[0]` as the tool name.
-
-### `editCheatSheet(args []string)`
-
-Opens an existing cheat sheet file in the terminal editor.
-
-* Requires: `args[0]` as the tool name.
-
-### `addCheatSheet(args []string)`
-
-Creates a new cheat sheet and opens it in the editor.
-
-* Requires: `args[0]` as the tool name.
-
-### `deleteCheatSheet(args []string)`
-
-Deletes an existing cheat sheet.
-
-* Requires: `args[0]` as the tool name.
-
-### `main()`
-
-Parses command-line arguments and invokes the appropriate operation based on the second argument (mode).
-
-## Error Handling
-
-* If required arguments are missing, a helpful usage message is displayed.
-* File I/O operations log fatal errors for better visibility and debugging.
+Here's a complete and updated `README.md` for your `tref` cheat config tool based on the code you provided:
 
 ---
 
-This tool is ideal for developers who want quick terminal-based access to frequently used command references, configuration patterns, or usage examples.
+# `tref` – Terminal Reference Manager
+
+`tref` is a command-line utility to manage personal **cheat sheets** for different developer tools. It provides quick access to custom or default command references, config snippets, and usage examples — all stored locally in OS-specific configuration directories.
+
+## ✨ Features
+
+* 📖 Read (`--read`) cheat sheets
+* 📝 Edit (`--edit`) cheat sheets using your terminal editor
+* 🆕 Add (`--add`) new cheat sheets
+* ❌ Delete (`--delete`) existing cheat sheets
+* 🔁 Reset to defaults (`--reset` or `--get-default`) from GitHub
+* ❓ Display help info (`--help`)
+
+## 📁 Cheat Sheet Storage
+
+Cheat sheets are stored in an OS-specific config directory under `tref/`:
+
+| OS      | Config Directory                            |
+| ------- | ------------------------------------------- |
+| Linux   | `$XDG_CONFIG_HOME/tref` or `~/.config/tref` |
+| macOS   | `$XDG_CONFIG_HOME/tref` or `~/.config/tref` |
+| Windows | `%AppData%\tref`                            |
+
+Each cheat sheet is stored as a `toolname.json` file.
+
+## 🛠 Usage
+
+```bash
+tref <toolname> [--read | --edit | --add | --delete]
+```
+
+Or for global operations:
+
+```bash
+tref [--reset | --get-default | --help]
+```
+
+### ✅ Examples
+
+```bash
+# View a cheat sheet for git
+tref git --read
+
+# Edit a cheat sheet for docker
+tref docker --edit
+
+# Create a new cheat sheet for kubectl
+tref kubectl --add
+
+# Delete an existing cheat sheet for terraform
+tref terraform --delete
+
+# Reset all cheat sheets to official defaults
+tref --reset
+
+# Get help/usage info
+tref --help
+```
+
+## 🔄 Reset to Defaults
+
+You can fetch a full set of prebuilt cheat sheets from the following GitHub JSON:
+
+```
+https://raw.githubusercontent.com/pavandhadge/tref/main/defaultCheatsheets/devtools.json
+```
+
+Use either of the following to reset your cheat sheets:
+
+```bash
+tref --reset
+# or
+tref --get-default
+```
+
+This will:
+
+* Download the JSON
+* Wipe your existing local cheat sheets
+* Split the master file into individual `<tool>.json` files
+
+## 🖋 Environment Variables
+
+* `EDITOR`: Used to open `.json` files for `--edit` and `--add`.
+
+  * Defaults to `nano` if not set.
+
+## ⚙ Functions Overview
+
+| Function                        | Description                                            |
+| ------------------------------- | ------------------------------------------------------ |
+| `getCheatConfigDir()`           | Detects OS and returns/creates the correct config path |
+| `readCheatSheet(args)`          | Displays contents of a cheat sheet                     |
+| `editCheatSheet(args)`          | Opens a cheat sheet for editing in terminal editor     |
+| `addCheatSheet(args)`           | Creates a new cheat sheet and opens it for editing     |
+| `deleteCheatSheet(args)`        | Removes a cheat sheet                                  |
+| `downloadAndSplitCheatSheets()` | Downloads master JSON and splits into individual files |
+| `cleanConfigDir()`              | Clears all current cheat sheets from config directory  |
+
+## ❌ Error Handling
+
+* Graceful exit and message if:
+
+  * Required tool name is missing
+  * File operations fail
+  * Invalid command is given
+* Automatically creates config directory if not found
+
+---
+
+This tool is ideal for developers who prefer **fast terminal-based access** to curated command references without browsing the web or switching context.
+
+> Built for speed. Works offline. Lives in your terminal.
