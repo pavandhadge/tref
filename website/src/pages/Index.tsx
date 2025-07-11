@@ -179,6 +179,19 @@ Top results:
             </Button>
             <Button
               asChild
+              size="lg"
+              className="bg-gradient-to-r from-[#0EA5E9] to-[#8B5CF6] text-white border-none hover:opacity-90 shadow-lg shadow-[#0EA5E9]/20"
+            >
+              <a
+                href="https://github.com/pavandhadge/tref/releases"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Download className="mr-2 h-5 w-5" /> Download
+              </a>
+            </Button>
+            <Button
+              asChild
               variant="outline"
               size="lg"
               className="border-[#8B5CF6] text-[#8B5CF6] hover:bg-[#8B5CF6]/10 shadow"
@@ -272,6 +285,25 @@ Top results:
               />
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Download Section */}
+      <section id="download" className="w-full py-20 bg-gradient-to-br from-[#8B5CF6]/10 via-[#0EA5E9]/10 to-[#FAFAFA] border-t border-[#8B5CF6]/10">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9]">Download tref</h2>
+          <p className="text-lg text-slate-700 mb-8">Get the latest standalone executable or Python package for your platform. No installation hassle—just download and start using tref!</p>
+          <a
+            href="https://github.com/pavandhadge/tref/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block"
+          >
+            <Button size="lg" className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] text-white text-xl px-10 py-6 shadow-lg hover:opacity-90">
+              <Download className="mr-3 h-7 w-7" /> Download Latest Release
+            </Button>
+          </a>
+          <p className="text-slate-500 mt-6">See <a href="https://github.com/pavandhadge/tref/releases" target="_blank" rel="noopener noreferrer" className="underline text-[#8B5CF6]">all releases on GitHub</a>.</p>
         </div>
       </section>
 
