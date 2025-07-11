@@ -70,6 +70,16 @@ const Header = () => {
                 GitHub
               </a>
             </li>
+            <li>
+              <a
+                href="https://github.com/pavandhadge/tref/releases"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn("transition-colors", navText, navTextHover)}
+              >
+                Download
+              </a>
+            </li>
           </ul>
         </nav>
       </div>
@@ -110,6 +120,16 @@ const Header = () => {
                   className="block px-2 py-2 hover:bg-slate-800 rounded hover:text-[#8B5CF6] transition-colors"
                 >
                   GitHub
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/pavandhadge/tref/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block px-2 py-2 hover:bg-slate-800 rounded hover:text-[#8B5CF6] transition-colors"
+                >
+                  Download
                 </a>
               </li>
             </ul>
