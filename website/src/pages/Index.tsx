@@ -21,140 +21,121 @@ import TerminalDemo from "@/components/TerminalDemo";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import TerminalHeader from "@/components/TerminalHeader";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const features = [
     {
       icon: <BookOpen className="h-6 w-6" />,
       title: "Read Cheat Sheets",
-      description: "Access your cheat sheets instantly with `tref git --read`",
-      command: "tref git --read",
+      description: "View your cheat sheets instantly with `--read TOOL`.",
+      command: "python3 -m tref.cli --read TOOL",
     },
     {
       icon: <Edit className="h-6 w-6" />,
       title: "Edit Cheat Sheets",
-      description: "Modify existing cheat sheets with `tref curl --edit`",
-      command: "tref curl --edit",
+      description: "Modify existing cheat sheets with `--edit TOOL`.",
+      command: "python3 -m tref.cli --edit TOOL",
     },
     {
       icon: <Plus className="h-6 w-6" />,
       title: "Add New Cheat Sheets",
-      description: "Create new references with `tref make --add`",
-      command: "tref make --add",
+      description: "Create new references with `--add TOOL`.",
+      command: "python3 -m tref.cli --add TOOL",
     },
     {
       icon: <X className="h-6 w-6" />,
       title: "Delete Cheat Sheets",
-      description: "Remove unwanted cheat sheets with `tref ls --delete`",
-      command: "tref ls --delete",
+      description: "Remove unwanted cheat sheets with `--delete TOOL`.",
+      command: "python3 -m tref.cli --delete TOOL",
     },
     {
       icon: <RefreshCw className="h-6 w-6" />,
-      title: "Reset Cheat Sheets",
-      description: "Fetch default cheat sheets from GitHub with `tref --reset`",
-      command: "tref --reset",
+      title: "Update Embeddings",
+      description: "Regenerate semantic search embeddings with `--update-embeddings` after editing sheets.",
+      command: "python3 -m tref.cli --update-embeddings",
     },
     {
       icon: <Code className="h-6 w-6" />,
-      title: "Editor Integration",
-      description: "Uses your $EDITOR or defaults to nano",
-      command: "export EDITOR=vim",
+      title: "Semantic Search",
+      description: "Find commands by meaning with `--search TOOL QUERY` or use `--interactive` mode.",
+      command: "python3 -m tref.cli --search TOOL QUERY",
     },
   ];
 
   const examples = [
     {
       title: "Reading a cheat sheet",
-      command: "tref git --read",
+      command: "python3 -m tref.cli --read git",
       output: `
-# Git Cheat Sheet
-
-## Basic Commands
-- git init: Initialize a new repository
-- git clone <url>: Clone a repository
-- git add <file>: Stage changes
-- git commit -m "message": Commit changes
-- git push: Push changes to remote
-- git pull: Fetch and merge changes
-
-## Branching
-- git branch: List branches
-- git branch <name>: Create branch
-- git checkout <branch>: Switch branch
-- git merge <branch>: Merge branch
-      `,
+=== Cheat Sheet for git ===
+{
+  "git Cheatsheet": {
+    "General": [
+      {
+        "name": "Clone a repository",
+        "command": "git clone <url>",
+        "explanation": "Clone a remote repository",
+        "tags": []
+      }
+    ]
+  }
+}
+    `,
     },
     {
       title: "Adding a new cheat sheet",
-      command: "tref docker --add",
+      command: "python3 -m tref.cli --add docker",
       output: `
-# Opening editor to add Docker cheat sheet...
-
-# Docker Cheat Sheet successfully added!
-- Saved to: ~/.config/tref/docker.json
-- Access with: tref docker --read
-      `,
+Created new cheat sheet for 'docker' at ~/.config/tref/cheatsheets/docker.json
+# Editor opens for you to add content
+    `,
     },
     {
-      title: "Editing a cheat sheet",
-      command: "tref python --edit",
+      title: "Semantic search",
+      command: "python3 -m tref.cli --search git 'clone repository'",
       output: `
-# Opening Python cheat sheet in editor...
+Top results for 'clone repository':
 
-# Cheat sheet updated successfully!
-- Modified: ~/.config/tref/python.json
-      `,
+1. Clone a repository (Score: 0.999)
+   Command: git clone <url>
+   Explanation: Clone a remote repository
+    `,
     },
     {
-      title: "Resetting to defaults",
-      command: "tref --reset",
+      title: "Interactive search",
+      command: "python3 -m tref.cli --interactive",
       output: `
-# Fetching default cheat sheets from GitHub...
+Available tools: git, docker, ...
+Enter tool name (or 'quit'): git
+Enter your query: clone
 
-✓ Downloaded: git.json
-✓ Downloaded: docker.json
-✓ Downloaded: python.json
-✓ Downloaded: javascript.json
-✓ Downloaded: linux.json
-
-# Default cheat sheets restored!
-      `,
-    },
-  ];
-
-  const downloadLinks = [
-    {
-      platform: "Linux",
-      url: "https://github.com/pavandhadge/tref/releases/download/tref/tref_darwin_amd64",
-    },
-    {
-      platform: "macOS",
-      url: "https://github.com/pavandhadge/tref/releases/download/tref/tref_darwin_amd64",
-    },
-    {
-      platform: "Windows",
-      url: "https://github.com/pavandhadge/tref/releases/download/tref/tref_darwin_amd64",
+Top results:
+1. Clone a repository (Score: 0.999)
+   Command: git clone <url>
+   Explanation: Clone a remote repository
+    `,
     },
   ];
 
   const benefits = [
     {
       icon: <Server className="h-6 w-6" />,
-      title: "Lightweight & Fast",
+      title: "Fast & Local",
       description:
-        "Built with Go for exceptional performance. Starts instantly and uses minimal system resources.",
+        "Runs locally with Python and HuggingFace Transformers. No internet required after setup.",
     },
     {
       icon: <Shield className="h-6 w-6" />,
-      title: "Offline First",
+      title: "Private & Secure",
       description:
-        "All your cheat sheets are stored locally. No internet connection required after initial setup.",
+        "Your cheat sheets and embeddings are stored on your machine only.",
     },
     {
       icon: <Zap className="h-6 w-6" />,
-      title: "Developer Friendly",
+      title: "Semantic Search",
       description:
-        "Integrates with your existing workflow and terminal environment. Customizable to your needs.",
+        "Find commands by meaning, not just keywords, using state-of-the-art embeddings.",
     },
   ];
 
@@ -163,58 +144,58 @@ const Index = () => {
       <Header />
 
       {/* Hero Section */}
-      <section className="px-4 py-16 md:py-24 max-w-6xl mx-auto text-center">
-        <div className="flex justify-center mb-6">
-          <div className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] p-4 rounded-lg w-20 h-20 flex items-center justify-center shadow-lg">
-            <Terminal className="h-12 w-12 text-white" />
+      <section className="relative overflow-hidden w-full px-0 py-20 md:py-32 text-center flex flex-col items-center justify-center min-h-[100vh]">
+        {/* Animated background gradient blob */}
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[120vw] h-[500px] bg-gradient-to-tr from-[#8B5CF6]/60 via-[#0EA5E9]/40 to-[#8B5CF6]/30 blur-3xl opacity-70 animate-pulse z-0" />
+        {/* Floating shapes */}
+        <div className="absolute top-10 left-10 w-24 h-24 bg-[#8B5CF6]/30 rounded-full blur-2xl animate-float-slow z-0" />
+        <div className="absolute bottom-10 right-10 w-32 h-32 bg-[#0EA5E9]/20 rounded-full blur-2xl animate-float-fast z-0" />
+        <div className="relative z-10 flex flex-col items-center w-full">
+          <div className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] p-6 rounded-2xl w-28 h-28 flex items-center justify-center shadow-2xl border-4 border-white/20 mb-6 animate-bounce-slow">
+            <Terminal className="h-16 w-16 text-white drop-shadow-lg" />
           </div>
-        </div>
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9]">
-          tref
-        </h1>
-        <p className="text-xl md:text-2xl text-slate-600 mb-8 max-w-3xl mx-auto">
-          A lightweight{" "}
-          <span className="text-[#8B5CF6] font-semibold">Go-powered</span> CLI
-          tool to manage and access your development cheat sheets
-        </p>
-
-        <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
-          <Button
-            asChild
-            size="lg"
-            className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] text-white border-none hover:opacity-90"
-          >
-            <a
-              href="https://github.com/pavandhadge/tref/releases/latest"
-              target="_blank"
-              rel="noopener noreferrer"
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] drop-shadow-xl tracking-tight">
+            tref
+          </h1>
+          <p className="text-2xl md:text-3xl text-[#8B5CF6] font-mono font-semibold mb-2 animate-fade-in">
+            Terminal cheat sheets, reimagined.
+          </p>
+          <p className="text-lg md:text-xl text-slate-700 mb-8 max-w-xl mx-auto animate-fade-in delay-200">
+            Find, recall, and use your favorite commands in seconds. No more context switching. No more lost snippets.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12 animate-fade-in delay-300">
+            <Button
+              asChild
+              size="lg"
+              className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] text-white border-none hover:opacity-90 shadow-lg shadow-[#8B5CF6]/20"
             >
-              <Download className="mr-2 h-5 w-5" /> Get tref now
-            </a>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            size="lg"
-            className="border-[#8B5CF6] text-[#8B5CF6] hover:bg-[#8B5CF6]/10"
-          >
-            <a
-              href="https://github.com/pavandhadge/tref"
-              target="_blank"
-              rel="noopener noreferrer"
+              <a
+                href="https://github.com/pavandhadge/tref"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Github className="mr-2 h-5 w-5" /> View on GitHub
+              </a>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="border-[#8B5CF6] text-[#8B5CF6] hover:bg-[#8B5CF6]/10 shadow"
             >
-              <Github className="mr-2 h-5 w-5" /> View on GitHub
-            </a>
-          </Button>
-        </div>
-
-        <div className="flex justify-center">
-          <ArrowDown className="h-8 w-8 text-[#8B5CF6] animate-bounce" />
+              <Link to="/docs">
+                📖 Read Documentation
+              </Link>
+            </Button>
+          </div>
+          <div className="flex justify-center animate-bounce mt-2">
+            <ArrowDown className="h-10 w-10 text-[#8B5CF6]" />
+          </div>
         </div>
       </section>
 
       {/* About Section - New section with more information */}
-      <section className="py-16 bg-[#FAFAFA]">
+      <section className="w-full py-20 bg-gradient-to-br from-[#FAFAFA] via-[#F8F8FF] to-[#e9e6fa] border-t border-[#8B5CF6]/10">
         <div className="max-w-6xl mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold text-center text-slate-800 mb-10">
             Why{" "}
@@ -223,52 +204,48 @@ const Index = () => {
             </span>
             ?
           </h2>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {benefits.map((benefit, index) => (
               <Card
                 key={index}
-                className="bg-white p-6 shadow-md hover:shadow-lg transition-shadow border-0"
+                className="bg-white/90 p-6 shadow-xl hover:shadow-2xl transition-shadow border-0 backdrop-blur-md"
               >
-                <div className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] p-3 rounded-lg w-14 h-14 flex items-center justify-center mb-4 text-white">
+                <div className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] p-3 rounded-lg w-14 h-14 flex items-center justify-center mb-4 text-white shadow-md">
                   {benefit.icon}
                 </div>
-                <h3 className="text-xl font-semibold mb-3 text-slate-800">
+                <h3 className="text-xl font-semibold mb-2 text-slate-800">
                   {benefit.title}
                 </h3>
-                <p className="text-slate-600">{benefit.description}</p>
+                <p className="text-slate-600 text-base leading-relaxed">
+                  {benefit.description}
+                </p>
               </Card>
             ))}
           </div>
-
-          <div className="mt-14 text-center">
-            <p className="text-lg md:text-xl text-slate-700 max-w-3xl mx-auto mb-6">
-              <span className="font-mono font-bold">tref</span> simplifies your
-              development workflow by keeping frequently used commands, snippets
-              and references at your fingertips.
+          <div className="mt-12 text-center">
+            <p className="text-lg md:text-xl text-slate-700 max-w-2xl mx-auto mb-4 font-mono font-semibold">
+              Fast. Local. Private. Always at your fingertips.
             </p>
-            <p className="text-slate-600 max-w-2xl mx-auto">
-              Stop searching the web for commands you've used before. Create
-              personalized cheat sheets once, access them instantly whenever you
-              need them, right from your terminal.
+            <p className="text-slate-500 max-w-xl mx-auto text-base">
+              tref keeps your knowledge searchable and ready—no internet, no distractions.
             </p>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-16 bg-[	#FFFFFF] ">
-        {/* <div className="max-w-6xl mx-auto px-4"> */}
-        {/* <TerminalHeader command="tref" flag="--features" /> */}
+      <section id="features" className="w-full py-20 bg-gradient-to-br from-[#F8F8FF] via-[#e9e6fa] to-[#FAFAFA] border-t border-[#8B5CF6]/10">
         <div className="max-w-6xl mx-auto px-4">
-          <div className=" mb-10">
-            <h2 className="text-2xl md:text-3xl font-mono font-bold inline-block">
+          <div className="mb-8 text-start">
+            <h2 className="text-2xl md:text-3xl font-mono font-bold inline-block mb-2">
               <span className="text-[#9b87f5]">$</span> tref{" "}
               <span className="text-[#1EAEDB]">--features</span>
             </h2>
+            <p className="text-slate-600 text-base max-w-2xl  mt-2 text-start">
+              Everything you need to manage, search, and use your cheat sheets—right from your terminal.
+            </p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
               <FeatureCard key={index} {...feature} />
             ))}
@@ -277,9 +254,9 @@ const Index = () => {
       </section>
 
       {/* Examples Section */}
-      <section id="examples" className="py-16 bg-[#F8F8FF]">
+      <section id="examples" className="w-full py-20 bg-gradient-to-br from-[#e9e6fa] via-[#F8F8FF] to-[#FAFAFA] border-t border-[#8B5CF6]/10">
         <div className="max-w-6xl mx-auto px-4">
-          <div className=" mb-10">
+          <div className="mb-10">
             <h2 className="text-2xl md:text-3xl font-mono font-bold inline-block">
               <span className="text-[#9b87f5]">$</span> tref{" "}
               <span className="text-[#1EAEDB]">--examples</span>
@@ -294,51 +271,6 @@ const Index = () => {
                 output={example.output}
               />
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Download Section */}
-      <section id="download" className="py-16 bg-white">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className=" mb-10">
-            <h2 className="text-2xl md:text-3xl font-mono font-bold inline-block">
-              <span className="text-[#9b87f5]">$</span> tref{" "}
-              <span className="text-[#1EAEDB]">--download</span>
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
-            {downloadLinks.map((link, index) => (
-              <Card
-                key={index}
-                className={cn(
-                  "bg-white border-slate-200 hover:border-[#8B5CF6] transition-colors",
-                  "flex flex-col items-center justify-center p-6 text-center shadow-md",
-                )}
-              >
-                <h3 className="text-xl font-semibold mb-3 text-slate-800">
-                  {link.platform}
-                </h3>
-                <Button
-                  asChild
-                  className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] text-white hover:opacity-90"
-                >
-                  <a href={link.url} target="_blank" rel="noopener noreferrer">
-                    <Download className="mr-2 h-4 w-4" /> Download
-                  </a>
-                </Button>
-              </Card>
-            ))}
-          </div>
-
-          <div className="mt-12 text-center">
-            <p className="text-slate-600 mb-4">
-              Alternatively, install with Go:
-            </p>
-            <div className="bg-slate-800 text-white border border-slate-700 p-4 rounded-lg inline-block font-mono text-sm md:text-base shadow-md">
-              <code>$ go install github.com/pavandhadge/tref@latest</code>
-            </div>
           </div>
         </div>
       </section>
