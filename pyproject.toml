@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tref"
+version = "0.1.0"
+description = "Terminal cheat sheets with semantic search and AI embeddings."
+authors = [
+    { name = "Pavan Dhadge", email = "" }
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "transformers>=4.30.0",
+    "torch>=2.0.0",
+    "numpy",
+    "click",
+    "scikit-learn",
+    "tqdm"
+]
+
+[project.scripts]
+tref = "tref.cli:main" 
+
+[tool.setuptools]
+packages = ["tref"] 

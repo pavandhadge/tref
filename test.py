@@ -17,7 +17,6 @@ CHUNK_SIZE = 64  # For memory-efficient processing
 class CheatManager:
     def __init__(self):
         self.config_dir = self._get_config_dir()
-        # print(self.config_dir)
         self.cheatsheets_dir = self.config_dir / "cheatsheets"
         self.embeddings_file = self.config_dir / "vectors.npy"
         self.meta_file = self.config_dir / "meta.jsonl"
@@ -29,6 +28,7 @@ class CheatManager:
         self._encoder = None
         self._embeddings = None
         self._metadata = None
+        self._interactive_mode = False  # Track if we're in interactive mode
 
     def _get_config_dir(self) -> Path:
         """Get platform-appropriate config directory"""
@@ -160,14 +160,10 @@ class CheatManager:
         texts = []
 
         for tool in self.list_cheatsheets():
-            print(tool)
             try:
                 content = self.read_cheatsheet(tool)
-                print(content)
                 tool_name = next(iter(content))
-                print(tool_name)
                 sections = content[tool_name]
-                print(sections)
 
                 for section, items in sections.items():
                     for item in items:
@@ -256,40 +252,48 @@ class CheatManager:
             return []
 
     def interactive_search(self):
-        """Interactive search interface"""
+        """Interactive search interface with preloaded model"""
         print("Available tools:", ", ".join(self.list_cheatsheets()))
 
-        while True:
-            try:
-                tool = input("\nEnter tool name (or 'quit'): ").strip()
-                if tool.lower() in ('quit', 'exit', 'q'):
+        # Preload the encoder when entering interactive mode
+        self._interactive_mode = True
+        _ = self.encoder  # This triggers the lazy loading
+
+        try:
+            while True:
+                try:
+                    tool = input("\nEnter tool name (or 'quit'): ").strip()
+                    if tool.lower() in ('quit', 'exit', 'q'):
+                        break
+
+                    if tool not in self.list_cheatsheets():
+                        print(f"No cheat sheet for '{tool}'. Available: {', '.join(self.list_cheatsheets())}")
+                        continue
+
+                    query = input("Enter your query: ").strip()
+                    if not query:
+                        continue
+
+                    results = self.semantic_search(tool, query)
+
+                    if not results:
+                        print("\nNo results found")
+                        continue
+
+                    print("\nTop results:")
+                    for i, res in enumerate(results, 1):
+                        print(f"\n{i}. {res['name']} (Score: {res['score']:.3f})")
+                        print(f"   Command: {res['command']}")
+                        print(f"   Explanation: {res['explanation']}")
+
+                except (KeyboardInterrupt, EOFError):
+                    print("\nGoodbye!")
                     break
-
-                if tool not in self.list_cheatsheets():
-                    print(f"No cheat sheet for '{tool}'. Available: {', '.join(self.list_cheatsheets())}")
-                    continue
-
-                query = input("Enter your query: ").strip()
-                if not query:
-                    continue
-
-                results = self.semantic_search(tool, query)
-
-                if not results:
-                    print("\nNo results found")
-                    continue
-
-                print("\nTop results:")
-                for i, res in enumerate(results, 1):
-                    print(f"\n{i}. {res['name']} (Score: {res['score']:.3f})")
-                    print(f"   Command: {res['command']}")
-                    print(f"   Explanation: {res['explanation']}")
-
-            except (KeyboardInterrupt, EOFError):
-                print("\nGoodbye!")
-                break
-            except Exception as e:
-                print(f"\nError: {e}")
+                except Exception as e:
+                    print(f"\nError: {e}")
+        finally:
+            # Clean up when exiting interactive mode
+            self._interactive_mode = False
 
 def main():
     parser = argparse.ArgumentParser(

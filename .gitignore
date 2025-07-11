@@ -1,1 +1,6 @@
 /build
+__pycache__/
+dist/
+build/
+*.spec
+tref.egg-info/
