@@ -20,7 +20,26 @@ def load_embeddings_and_meta(config_dir: Path):
     return embeddings, metadata
 
 def update_embeddings(manager: CheatSheetManager, emb_mgr: EmbeddingManager, config_dir: Path):
-    print("Generating embeddings from cheat sheets...")
+    print("Checking for cheat sheet updates...")
+    hashes_file = config_dir / "hashes.json"
+    if hashes_file.exists():
+        with open(hashes_file, 'r') as f:
+            hashes = json.load(f)
+    else:
+        hashes = {}
+
+    updated_cheatsheets = []
+    for tool in manager.list_cheatsheets():
+        current_hash = manager.get_cheatsheet_hash(tool)
+        if hashes.get(tool) != current_hash:
+            updated_cheatsheets.append(tool)
+            hashes[tool] = current_hash
+
+    if not updated_cheatsheets:
+        print("Embeddings are already up to date.")
+        return
+
+    print(f"Generating embeddings for {len(updated_cheatsheets)} updated cheat sheets...")
     entries = []
     texts = []
     for tool in manager.list_cheatsheets():
@@ -50,6 +69,8 @@ def update_embeddings(manager: CheatSheetManager, emb_mgr: EmbeddingManager, con
         for idx, entry in enumerate(entries):
             entry['index'] = idx
             f.write(json.dumps(entry) + '\n')
+    with open(hashes_file, 'w') as f:
+        json.dump(hashes, f, indent=2)
     print(f"Generated {len(entries)} embeddings from {len(manager.list_cheatsheets())} cheat sheets")
 
 def interactive_search(manager: CheatSheetManager, search_mgr: SearchManager):
@@ -93,6 +114,7 @@ def main():
     parser.add_argument('--search', nargs=2, metavar=('TOOL', 'QUERY'), help='Search a cheat sheet')
     parser.add_argument('--interactive', action='store_true', help='Launch interactive search')
     parser.add_argument('--update-embeddings', action='store_true', help='Update embeddings from cheat sheets')
+    parser.add_argument('--reset', action='store_true', help='Reset all cheat sheets to default')
     args = parser.parse_args()
     manager = CheatSheetManager()
     emb_mgr = EmbeddingManager()
@@ -134,6 +156,10 @@ def main():
             interactive_search(manager, search_mgr)
         elif args.update_embeddings:
             update_embeddings(manager, emb_mgr, config_dir)
+        elif args.reset:
+            manager.reset_cheatsheets()
+            update_embeddings(manager, emb_mgr, config_dir)
+            print("Cheat sheets have been reset to default.")
         else:
             parser.print_help()
     except Exception as e:

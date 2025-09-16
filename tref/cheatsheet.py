@@ -2,6 +2,7 @@ import os
 import json
 import shutil
 import subprocess
+import hashlib
 from pathlib import Path
 from typing import List, Dict
 from tref.config import get_config_dir
@@ -20,6 +21,13 @@ class CheatSheetManager:
         for cheatsheet in default_cheatsheets_dir.glob("*.json"):
             if not (self.cheatsheets_dir / cheatsheet.name).exists():
                 shutil.copy(cheatsheet, self.cheatsheets_dir)
+
+    def get_cheatsheet_hash(self, tool: str) -> str:
+        filepath = self.cheatsheets_dir / f"{tool}.json"
+        if not filepath.exists():
+            return ""
+        with open(filepath, 'rb') as f:
+            return hashlib.sha256(f.read()).hexdigest()
 
     def list_cheatsheets(self) -> List[str]:
         return [f.stem for f in self.cheatsheets_dir.glob("*.json")]
@@ -66,10 +74,7 @@ class CheatSheetManager:
         filepath.unlink()
         print(f"Deleted cheat sheet for '{tool}'")
 
-    def show_cheatsheet(self, tool: str):
-        try:
-            content = self.read_cheatsheet(tool)
-            print(f"=== Cheat Sheet for {tool} ===")
-            print(json.dumps(content, indent=2))
-        except Exception as e:
-            print(f"Error: {e}")
+    def reset_cheatsheets(self):
+        for cheatsheet in self.cheatsheets_dir.glob("*.json"):
+            cheatsheet.unlink()
+        self.setup_default_cheatsheets()
