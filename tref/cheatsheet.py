@@ -15,12 +15,21 @@ class CheatSheetManager:
         self.setup_default_cheatsheets()
 
     def setup_default_cheatsheets(self):
-        default_cheatsheets_dir = Path(__file__).parent.parent / "defaultCheatsheets"
-        if not default_cheatsheets_dir.exists():
+        try:
+            import importlib.resources as pkg_resources
+        except ImportError:
+            # Try backported to PY<37 `importlib_resources`.
+            import importlib_resources as pkg_resources
+
+        default_cheatsheets_dir = pkg_resources.files('tref') / 'defaultCheatsheets'
+        if not default_cheatsheets_dir.is_dir():
             return
-        for cheatsheet in default_cheatsheets_dir.glob("*.json"):
-            if not (self.cheatsheets_dir / cheatsheet.name).exists():
-                shutil.copy(cheatsheet, self.cheatsheets_dir)
+        for cheatsheet in default_cheatsheets_dir.iterdir():
+            if cheatsheet.suffix == '.json':
+                if not (self.cheatsheets_dir / cheatsheet.name).exists():
+                    with pkg_resources.as_file(cheatsheet) as cs:
+                        shutil.copy(cs, self.cheatsheets_dir)
+
 
     def get_cheatsheet_hash(self, tool: str) -> str:
         filepath = self.cheatsheets_dir / f"{tool}.json"
