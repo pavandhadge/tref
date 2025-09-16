@@ -1,0 +1,92 @@
+{
+    "nmap Cheatsheet": {
+        "Basic Scanning": [
+            {
+                "name": "Scan single target",
+                "command": "nmap 192.168.1.1",
+                "explanation": "Scans a single target IP address.",
+                "tags": ["scan", "target", "single"]
+            },
+            {
+                "name": "Scan multiple targets",
+                "command": "nmap 192.168.1.1 192.168.1.2",
+                "explanation": "Scans multiple target IP addresses.",
+                "tags": ["scan", "target", "multiple"]
+            },
+            {
+                "name": "Scan subnet",
+                "command": "nmap 192.168.1.0/24",
+                "explanation": "Scans a subnet.",
+                "tags": ["scan", "subnet"]
+            }
+        ],
+        "Port Scanning": [
+            {
+                "name": "Scan specific ports",
+                "command": "nmap -p 22,80,443 192.168.1.1",
+                "explanation": "Scans only the specified ports.",
+                "tags": ["scan", "port", "specific"]
+            },
+            {
+                "name": "Scan all 65535 ports",
+                "command": "nmap -p- 192.168.1.1",
+                "explanation": "Scans all possible ports.",
+                "tags": ["scan", "port", "all"]
+            },
+            {
+                "name": "Detect open ports and services",
+                "command": "nmap -sV 192.168.1.1",
+                "explanation": "Detects the service versions on open ports.",
+                "tags": ["scan", "port", "service", "version"]
+            }
+        ],
+        "Operating System Detection": [
+            {
+                "name": "OS Detection",
+                "command": "nmap -O 192.168.1.1",
+                "explanation": "Detects the operating system of the target.",
+                "tags": ["os", "detection"]
+            },
+            {
+                "name": "Aggressive Scan (OS + version + scripts)",
+                "command": "nmap -A 192.168.1.1",
+                "explanation": "Performs an aggressive scan, including OS detection, version detection, script scanning, and traceroute.",
+                "tags": ["aggressive", "scan", "os", "version", "script"]
+            }
+        ],
+        "Stealth and Evade": [
+            {
+                "name": "TCP SYN scan (stealth)",
+                "command": "nmap -sS 192.168.1.1",
+                "explanation": "Performs a stealthy TCP SYN scan.",
+                "tags": ["stealth", "scan", "syn"]
+            },
+            {
+                "name": "Use decoy IP",
+                "command": "nmap -D RND:10 192.168.1.1",
+                "explanation": "Hides the scan with decoys.",
+                "tags": ["decoy", "stealth"]
+            }
+        ],
+        "Output": [
+            {
+                "name": "Save as normal file",
+                "command": "nmap -oN output.txt 192.168.1.1",
+                "explanation": "Saves the scan results in a normal text file.",
+                "tags": ["output", "file", "normal"]
+            },
+            {
+                "name": "Save as XML",
+                "command": "nmap -oX output.xml 192.168.1.1",
+                "explanation": "Saves the scan results in XML format.",
+                "tags": ["output", "file", "xml"]
+            },
+            {
+                "name": "Save all formats",
+                "command": "nmap -oA output 192.168.1.1",
+                "explanation": "Saves the scan results in all available formats.",
+                "tags": ["output", "file", "all"]
+            }
+        ]
+    }
+}

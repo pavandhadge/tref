@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Dict
@@ -10,6 +11,15 @@ class CheatSheetManager:
         self.config_dir = get_config_dir()
         self.cheatsheets_dir = self.config_dir / "cheatsheets"
         self.cheatsheets_dir.mkdir(parents=True, exist_ok=True)
+        self.setup_default_cheatsheets()
+
+    def setup_default_cheatsheets(self):
+        default_cheatsheets_dir = Path(__file__).parent.parent / "defaultCheatsheets"
+        if not default_cheatsheets_dir.exists():
+            return
+        for cheatsheet in default_cheatsheets_dir.glob("*.json"):
+            if not (self.cheatsheets_dir / cheatsheet.name).exists():
+                shutil.copy(cheatsheet, self.cheatsheets_dir)
 
     def list_cheatsheets(self) -> List[str]:
         return [f.stem for f in self.cheatsheets_dir.glob("*.json")]
@@ -62,4 +72,4 @@ class CheatSheetManager:
             print(f"=== Cheat Sheet for {tool} ===")
             print(json.dumps(content, indent=2))
         except Exception as e:
-            print(f"Error: {e}") 
+            print(f"Error: {e}")

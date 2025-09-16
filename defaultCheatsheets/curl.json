@@ -1,0 +1,78 @@
+{
+    "curl Cheatsheet": {
+        "Basic Usage": [
+            {
+                "name": "GET request",
+                "command": "curl http://example.com",
+                "explanation": "Performs a basic GET request.",
+                "tags": ["get", "request"]
+            },
+            {
+                "name": "Download file",
+                "command": "curl -O http://example.com/file.zip",
+                "explanation": "Downloads a file and saves it with the same name.",
+                "tags": ["download", "file"]
+            },
+            {
+                "name": "Follow redirects",
+                "command": "curl -L http://example.com",
+                "explanation": "Follows HTTP redirects.",
+                "tags": ["redirect"]
+            }
+        ],
+        "Headers & Data": [
+            {
+                "name": "Send custom header",
+                "command": "curl -H \"X-Header: value\" http://example.com",
+                "explanation": "Sends a custom header with the request.",
+                "tags": ["header", "custom"]
+            },
+            {
+                "name": "Send POST data (form)",
+                "command": "curl -d \"key=value\" http://example.com",
+                "explanation": "Sends data as a form with a POST request.",
+                "tags": ["post", "data", "form"]
+            },
+            {
+                "name": "Send POST JSON",
+                "command": "curl -H \"Content-Type: application/json\" -d '{\"key\": \"value\"}' http://example.com",
+                "explanation": "Sends JSON data with a POST request.",
+                "tags": ["post", "json"]
+            }
+        ],
+        "Authentication": [
+            {
+                "name": "Basic Auth",
+                "command": "curl -u username:password http://example.com",
+                "explanation": "Uses basic authentication.",
+                "tags": ["authentication", "basic"]
+            },
+            {
+                "name": "Bearer Token",
+                "command": "curl -H \"Authorization: Bearer <token>\" http://example.com",
+                "explanation": "Uses a bearer token for authentication.",
+                "tags": ["authentication", "bearer", "token"]
+            }
+        ],
+        "Advanced": [
+            {
+                "name": "Save output to file",
+                "command": "curl -o output.txt http://example.com",
+                "explanation": "Saves the output to a specified file.",
+                "tags": ["output", "file", "save"]
+            },
+            {
+                "name": "Show only response headers",
+                "command": "curl -I http://example.com",
+                "explanation": "Shows only the HTTP response headers.",
+                "tags": ["header", "response"]
+            },
+            {
+                "name": "Measure time details",
+                "command": "curl -w \"Time: %{time_total}\\n\" -o /dev/null -s http://example.com",
+                "explanation": "Measures the total time of the request.",
+                "tags": ["time", "measure", "performance"]
+            }
+        ]
+    }
+}

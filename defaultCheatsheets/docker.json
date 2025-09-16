@@ -1,0 +1,155 @@
+
+{
+    "docker Cheatsheet": {
+        "Images": [
+            {
+                "name": "List local images",
+                "command": "docker images",
+                "explanation": "Lists all local Docker images.",
+                "tags": ["image", "list"]
+            },
+            {
+                "name": "Pull image from Docker Hub",
+                "command": "docker pull <image-name>",
+                "explanation": "Downloads an image from Docker Hub.",
+                "tags": ["image", "pull", "download"]
+            },
+            {
+                "name": "Remove image",
+                "command": "docker rmi <image-name>",
+                "explanation": "Removes a Docker image.",
+                "tags": ["image", "remove", "delete"]
+            },
+            {
+                "name": "Build image from Dockerfile",
+                "command": "docker build -t <image-name> .",
+                "explanation": "Builds a Docker image from a Dockerfile in the current directory.",
+                "tags": ["image", "build", "dockerfile"]
+            }
+        ],
+        "Containers": [
+            {
+                "name": "Run container (interactive)",
+                "command": "docker run -it <image-name>",
+                "explanation": "Runs a command in a new container in interactive mode.",
+                "tags": ["container", "run", "interactive"]
+            },
+            {
+                "name": "Run container (detached)",
+                "command": "docker run -d <image-name>",
+                "explanation": "Runs a container in the background.",
+                "tags": ["container", "run", "detached", "background"]
+            },
+            {
+                "name": "List running containers",
+                "command": "docker ps",
+                "explanation": "Lists all running containers.",
+                "tags": ["container", "list", "running"]
+            },
+            {
+                "name": "List all containers",
+                "command": "docker ps -a",
+                "explanation": "Lists all containers, including stopped ones.",
+                "tags": ["container", "list", "all"]
+            },
+            {
+                "name": "Stop container",
+                "command": "docker stop <container-id>",
+                "explanation": "Stops a running container.",
+                "tags": ["container", "stop"]
+            },
+            {
+                "name": "Remove container",
+                "command": "docker rm <container-id>",
+                "explanation": "Removes a container.",
+                "tags": ["container", "remove", "delete"]
+            },
+            {
+                "name": "Execute command in running container",
+                "command": "docker exec -it <container-id> <command>",
+                "explanation": "Executes a command inside a running container.",
+                "tags": ["container", "exec", "command"]
+            }
+        ],
+        "Volumes & Networks": [
+            {
+                "name": "Create volume",
+                "command": "docker volume create <volume-name>",
+                "explanation": "Creates a new Docker volume.",
+                "tags": ["volume", "create"]
+            },
+            {
+                "name": "List volumes",
+                "command": "docker volume ls",
+                "explanation": "Lists all Docker volumes.",
+                "tags": ["volume", "list"]
+            },
+            {
+                "name": "Create user-defined network",
+                "command": "docker network create <network-name>",
+                "explanation": "Creates a new user-defined network.",
+                "tags": ["network", "create"]
+            },
+            {
+                "name": "Connect container to network",
+                "command": "docker network connect <network-name> <container-id>",
+                "explanation": "Connects a container to a network.",
+                "tags": ["network", "connect", "container"]
+            }
+        ],
+        "Inspect & Logs": [
+            {
+                "name": "Inspect container details",
+                "command": "docker inspect <container-id>",
+                "explanation": "Displays detailed information on a container.",
+                "tags": ["inspect", "details", "container"]
+            },
+            {
+                "name": "View container logs",
+                "command": "docker logs <container-id>",
+                "explanation": "Fetches the logs of a container.",
+                "tags": ["logs", "container"]
+            }
+        ],
+        "Compose": [
+            {
+                "name": "Start services",
+                "command": "docker-compose up",
+                "explanation": "Starts the services defined in a docker-compose.yml file.",
+                "tags": ["compose", "up", "start"]
+            },
+            {
+                "name": "Start in detached mode",
+                "command": "docker-compose up -d",
+                "explanation": "Starts the services in detached mode.",
+                "tags": ["compose", "up", "detached", "background"]
+            },
+            {
+                "name": "Stop services",
+                "command": "docker-compose down",
+                "explanation": "Stops and removes containers, networks, images, and volumes.",
+                "tags": ["compose", "down", "stop"]
+            },
+            {
+                "name": "Build services",
+                "command": "docker-compose build",
+                "explanation": "Builds the services defined in a docker-compose.yml file.",
+                "tags": ["compose", "build"]
+            }
+        ],
+        "Clean Up": [
+            {
+                "name": "Remove all stopped containers",
+                "command": "docker container prune",
+                "explanation": "Removes all stopped containers.",
+                "tags": ["cleanup", "prune", "container"]
+            },
+            {
+                "name": "Remove all unused images",
+                "command": "docker image prune -a",
+                "explanation": "Removes all unused images, not just dangling ones.",
+                "tags": ["cleanup", "prune", "image"]
+            }
+        ]
+    }
+}
