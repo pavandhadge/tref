@@ -7,7 +7,7 @@ name = "tref"
 version = "0.1.0"
 description = "Terminal cheat sheets with semantic search and AI embeddings."
 authors = [
-    { name = "Pavan Dhadge", email = "" }
+    { name = "Pavan Dhadge", email = "dhadgepavan@gmail.com" }
 ]
 readme = "README.md"
 requires-python = ">=3.8"
@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-tref = "tref.cli:main" 
+tref = "tref.__main__:main"
 
 [tool.setuptools]
-packages = ["tref"] 
+packages = ["tref"]

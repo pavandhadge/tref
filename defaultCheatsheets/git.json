@@ -1,0 +1,220 @@
+{
+    "git Cheatsheet": {
+        "Setup": [
+            {
+                "name": "Set username",
+                "command": "git config --global user.name \"Your Name\"",
+                "explanation": "Sets the username for Git commits.",
+                "tags": ["config", "user", "name"]
+            },
+            {
+                "name": "Set email",
+                "command": "git config --global user.email \"you@example.com\"",
+                "explanation": "Sets the email for Git commits.",
+                "tags": ["config", "user", "email"]
+            },
+            {
+                "name": "Check settings",
+                "command": "git config --list",
+                "explanation": "Lists all Git configuration settings.",
+                "tags": ["config", "list"]
+            }
+        ],
+        "Getting Started": [
+            {
+                "name": "Initialize a repository",
+                "command": "git init",
+                "explanation": "Initializes a new Git repository in the current directory.",
+                "tags": ["init", "repository"]
+            },
+            {
+                "name": "Clone a repository",
+                "command": "git clone https://github.com/user/repo.git",
+                "explanation": "Clones a repository from a URL.",
+                "tags": ["clone", "repository"]
+            }
+        ],
+        "Basic Snapshotting": [
+            {
+                "name": "Check status",
+                "command": "git status",
+                "explanation": "Shows the status of the working directory and staging area.",
+                "tags": ["status"]
+            },
+            {
+                "name": "Add files to staging",
+                "command": "git add <file>",
+                "explanation": "Adds a file to the staging area.",
+                "tags": ["add", "stage"]
+            },
+            {
+                "name": "Add all files",
+                "command": "git add .",
+                "explanation": "Adds all new and modified files to the staging area.",
+                "tags": ["add", "stage", "all"]
+            },
+            {
+                "name": "Commit changes",
+                "command": "git commit -m \"commit message\"",
+                "explanation": "Commits the staged changes with a message.",
+                "tags": ["commit"]
+            }
+        ],
+        "Branching and Merging": [
+            {
+                "name": "List branches",
+                "command": "git branch",
+                "explanation": "Lists all local branches.",
+                "tags": ["branch", "list"]
+            },
+            {
+                "name": "Create new branch",
+                "command": "git branch <branch-name>",
+                "explanation": "Creates a new branch.",
+                "tags": ["branch", "create"]
+            },
+            {
+                "name": "Switch branch",
+                "command": "git checkout <branch-name>",
+                "explanation": "Switches to a different branch.",
+                "tags": ["branch", "checkout", "switch"]
+            },
+            {
+                "name": "Create and switch",
+                "command": "git checkout -b <branch-name>",
+                "explanation": "Creates a new branch and switches to it.",
+                "tags": ["branch", "checkout", "create", "switch"]
+            },
+            {
+                "name": "Merge branch",
+                "command": "git merge <branch-name>",
+                "explanation": "Merges the specified branch into the current branch.",
+                "tags": ["branch", "merge"]
+            },
+            {
+                "name": "Delete branch",
+                "command": "git branch -d <branch-name>",
+                "explanation": "Deletes a local branch.",
+                "tags": ["branch", "delete"]
+            }
+        ],
+        "Remote Repositories": [
+            {
+                "name": "Add remote",
+                "command": "git remote add origin <url>",
+                "explanation": "Adds a remote repository.",
+                "tags": ["remote", "add"]
+            },
+            {
+                "name": "View remotes",
+                "command": "git remote -v",
+                "explanation": "Lists all remote repositories.",
+                "tags": ["remote", "list"]
+            },
+            {
+                "name": "Push to remote",
+                "command": "git push origin <branch-name>",
+                "explanation": "Pushes changes to a remote repository.",
+                "tags": ["remote", "push"]
+            },
+            {
+                "name": "Pull from remote",
+                "command": "git pull origin <branch-name>",
+                "explanation": "Pulls changes from a remote repository.",
+                "tags": ["remote", "pull"]
+            },
+            {
+                "name": "Fetch changes",
+                "command": "git fetch",
+                "explanation": "Fetches changes from a remote repository without merging.",
+                "tags": ["remote", "fetch"]
+            }
+        ],
+        "Inspect and Compare": [
+            {
+                "name": "Show commit log",
+                "command": "git log",
+                "explanation": "Shows the commit history.",
+                "tags": ["log", "history"]
+            },
+            {
+                "name": "Show changes",
+                "command": "git diff",
+                "explanation": "Shows the differences between the working directory and the staging area.",
+                "tags": ["diff", "changes"]
+            },
+            {
+                "name": "Show commit details",
+                "command": "git show <commit-id>",
+                "explanation": "Shows the details of a specific commit.",
+                "tags": ["show", "commit"]
+            }
+        ],
+        "Undo and Reset": [
+            {
+                "name": "Unstage a file",
+                "command": "git reset <file>",
+                "explanation": "Unstages a file.",
+                "tags": ["reset", "unstage"]
+            },
+            {
+                "name": "Undo last commit (keep changes)",
+                "command": "git reset --soft HEAD~1",
+                "explanation": "Undoes the last commit but keeps the changes in the working directory.",
+                "tags": ["reset", "undo", "soft"]
+            },
+            {
+                "name": "Undo last commit (discard changes)",
+                "command": "git reset --hard HEAD~1",
+                "explanation": "Undoes the last commit and discards the changes.",
+                "tags": ["reset", "undo", "hard"]
+            }
+        ],
+        "Stashing": [
+            {
+                "name": "Stash changes",
+                "command": "git stash",
+                "explanation": "Stashes the changes in the working directory.",
+                "tags": ["stash"]
+            },
+            {
+                "name": "List stashes",
+                "command": "git stash list",
+                "explanation": "Lists all stashes.",
+                "tags": ["stash", "list"]
+            },
+            {
+                "name": "Apply stash",
+                "command": "git stash apply",
+                "explanation": "Applies the last stash without removing it from the stash list.",
+                "tags": ["stash", "apply"]
+            },
+            {
+                "name": "Pop stash",
+                "command": "git stash pop",
+                "explanation": "Applies the last stash and removes it from the stash list.",
+                "tags": ["stash", "pop"]
+            }
+        ],
+        "Tagging": [
+            {
+                "name": "Create tag",
+                "command": "git tag <tag-name>",
+                "explanation": "Creates a new tag.",
+                "tags": ["tag", "create"]
+            },
+            {
+                "name": "Push tag",
+                "command": "git push origin <tag-name>",
+                "explanation": "Pushes a tag to a remote repository.",
+                "tags": ["tag", "push"]
+            },
+            {
+                "name": "List tags",
+                "command": "git tag",
+                "explanation": "Lists all tags.",
+                "tags": ["tag", "list"]
+            }
+        ]
+    }
+}
