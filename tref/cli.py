@@ -125,7 +125,11 @@ def main():
             for sheet in manager.list_cheatsheets():
                 print(f"- {sheet}")
         elif args.read:
-            manager.show_cheatsheet(args.read)
+            try:
+                cheatsheet = manager.read_cheatsheet(args.read)
+                print(json.dumps(cheatsheet, indent=2))
+            except FileNotFoundError as e:
+                print(f"Error: {e}")
         elif args.edit:
             manager.edit_cheatsheet(args.edit)
         elif args.add:
