@@ -1,0 +1,228 @@
+{
+    "kubectl Cheatsheet": {
+        "Cluster Information": [
+            {
+                "name": "Display client and server versions",
+                "command": "kubectl version",
+                "explanation": "Display the Kubernetes version running on the client and server.",
+                "tags": ["version", "cluster"]
+            },
+            {
+                "name": "Display cluster information",
+                "command": "kubectl cluster-info",
+                "explanation": "Display endpoint information about the master and services in the cluster.",
+                "tags": ["cluster-info", "cluster"]
+            },
+            {
+                "name": "View cluster configuration",
+                "command": "kubectl config view",
+                "explanation": "Get the configuration of the cluster.",
+                "tags": ["config", "cluster"]
+            },
+            {
+                "name": "Display current context",
+                "command": "kubectl config current-context",
+                "explanation": "Display the current context.",
+                "tags": ["config", "context"]
+            },
+            {
+                "name": "List available contexts",
+                "command": "kubectl config get-contexts",
+                "explanation": "Display a list of contexts.",
+                "tags": ["config", "context"]
+            },
+            {
+                "name": "Set default context",
+                "command": "kubectl config use-context <cluster name>",
+                "explanation": "Set the default context.",
+                "tags": ["config", "context"]
+            },
+            {
+                "name": "List available API resources",
+                "command": "kubectl api-resources",
+                "explanation": "List the API resources that are available.",
+                "tags": ["api", "resources"]
+            },
+            {
+                "name": "List available API versions",
+                "command": "kubectl api-versions",
+                "explanation": "List the API versions that are available.",
+                "tags": ["api", "versions"]
+            }
+        ],
+        "Listing Resources": [
+            {
+                "name": "List all pods in current namespace",
+                "command": "kubectl get pods",
+                "explanation": "List all pods in the current namespace.",
+                "tags": ["get", "pods"]
+            },
+            {
+                "name": "List pods in a specific namespace",
+                "command": "kubectl get pods -n <namespace>",
+                "explanation": "List pods in a specific namespace.",
+                "tags": ["get", "pods", "namespace"]
+            },
+            {
+                "name": "List pods in all namespaces",
+                "command": "kubectl get pods --all-namespaces",
+                "explanation": "List pods in all namespaces.",
+                "tags": ["get", "pods", "all-namespaces"]
+            },
+            {
+                "name": "List all nodes",
+                "command": "kubectl get nodes",
+                "explanation": "List all nodes in the cluster.",
+                "tags": ["get", "nodes"]
+            },
+            {
+                "name": "List all deployments",
+                "command": "kubectl get deployments",
+                "explanation": "List all deployments.",
+                "tags": ["get", "deployments"]
+            },
+            {
+                "name": "List all services",
+                "command": "kubectl get services",
+                "explanation": "List all services.",
+                "tags": ["get", "services"]
+            },
+            {
+                "name": "List recent events",
+                "command": "kubectl get events",
+                "explanation": "List recent events for all resources.",
+                "tags": ["get", "events"]
+            }
+        ],
+        "Describing Resources": [
+            {
+                "name": "Describe a pod",
+                "command": "kubectl describe pod <pod_name>",
+                "explanation": "Display detailed state of a pod.",
+                "tags": ["describe", "pod"]
+            },
+            {
+                "name": "Describe a node",
+                "command": "kubectl describe node <node_name>",
+                "explanation": "Display detailed state of a node.",
+                "tags": ["describe", "node"]
+            },
+            {
+                "name": "Describe a deployment",
+                "command": "kubectl describe deployment <deployment_name>",
+                "explanation": "Display detailed state of a deployment.",
+                "tags": ["describe", "deployment"]
+            }
+        ],
+        "Creating and Deleting Resources": [
+            {
+                "name": "Create resources from a file",
+                "command": "kubectl create -f <file.yml>",
+                "explanation": "Create resource(s) defined in a YAML or JSON file.",
+                "tags": ["create", "file"]
+            },
+            {
+                "name": "Create a deployment",
+                "command": "kubectl create deployment <deployment_name> --image=<container_image>",
+                "explanation": "Create a new deployment with a specified image.",
+                "tags": ["create", "deployment"]
+            },
+            {
+                "name": "Delete a pod",
+                "command": "kubectl delete pod <pod_name>",
+                "explanation": "Delete a pod.",
+                "tags": ["delete", "pod"]
+            },
+            {
+                "name": "Delete a deployment",
+                "command": "kubectl delete deployment <deployment_name>",
+                "explanation": "Delete a deployment.",
+                "tags": ["delete", "deployment"]
+            }
+        ],
+        "Updating and Editing Resources": [
+            {
+                "name": "Edit a resource",
+                "command": "kubectl edit <TYPE> <NAME>",
+                "explanation": "Edit and update the definition of a resource on the server.",
+                "tags": ["edit", "update"]
+            },
+            {
+                "name": "Apply a configuration",
+                "command": "kubectl apply -f <file.yml>",
+                "explanation": "Apply a configuration to an object by filename or stdin.",
+                "tags": ["apply", "update"]
+            },
+            {
+                "name": "Update a container image",
+                "command": "kubectl set image deployment/<deployment name> <container name>=image:<new image version>",
+                "explanation": "Perform a rolling update by setting a new image version for a container in a deployment.",
+                "tags": ["set", "image", "update"]
+            },
+            {
+                "name": "Rollback a deployment",
+                "command": "kubectl rollout undo deployment/<deployment name>",
+                "explanation": "Rollback a previous deployment.",
+                "tags": ["rollout", "undo", "deployment"]
+            },
+            {
+                "name": "Scale a deployment",
+                "command": "kubectl scale deployment <deployment_name> --replicas=<desired_number>",
+                "explanation": "Manually adjust the number of replicas for a deployment.",
+                "tags": ["scale", "deployment"]
+            }
+        ],
+        "Interacting with Pods": [
+            {
+                "name": "View pod logs",
+                "command": "kubectl logs <pod_name>",
+                "explanation": "View logs from a pod.",
+                "tags": ["logs", "pod"]
+            },
+            {
+                "name": "Tail pod logs",
+                "command": "kubectl logs -f <pod_name>",
+                "explanation": "Tail pod logs (stream live logs).",
+                "tags": ["logs", "pod", "tail"]
+            },
+            {
+                "name": "Execute a command in a pod",
+                "command": "kubectl exec -it <pod_name> -- /bin/sh",
+                "explanation": "Get an interactive shell on a single-container pod.",
+                "tags": ["exec", "pod", "shell"]
+            },
+            {
+                "name": "Display pod resource usage",
+                "command": "kubectl top pod",
+                "explanation": "Display resource usage (CPU/Memory) for pods.",
+                "tags": ["top", "pod", "resources"]
+            }
+        ],
+        "Nodes Management": [
+            {
+                "name": "Mark node as unschedulable",
+                "command": "kubectl cordon node <node_name>",
+                "explanation": "Mark a node as unschedulable.",
+                "tags": ["cordon", "node"]
+            },
+            {
+                "name": "Mark node as schedulable",
+                "command": "kubectl uncordon node <node_name>",
+                "explanation": "Mark a node as schedulable.",
+                "tags": ["uncordon", "node"]
+            },
+            {
+                "name": "Drain a node",
+                "command": "kubectl drain node <node_name>",
+                "explanation": "Drain a node in preparation for maintenance.",
+                "tags": ["drain", "node"]
+            },
+            {
+                "name": "Display node resource usage",
+                "command": "kubectl top node",
+                "explanation": "Display resource usage (CPU/Memory) for nodes.",
+                "tags": ["top", "node", "resources"]
+            }
+        ]
+    }
+}
