@@ -1,0 +1,134 @@
+{
+    "sed Cheatsheet": {
+        "Substitution": [
+            {
+                "name": "Substitute first occurrence",
+                "command": "sed 's/old/new/' file.txt",
+                "explanation": "Replaces the first occurrence of 'old' with 'new' in each line of file.txt.",
+                "tags": ["substitute", "replace"]
+            },
+            {
+                "name": "Substitute all occurrences",
+                "command": "sed 's/old/new/g' file.txt",
+                "explanation": "Replaces all occurrences of 'old' with 'new' in each line of file.txt.",
+                "tags": ["substitute", "replace", "global"]
+            },
+            {
+                "name": "Substitute with case-insensitivity",
+                "command": "sed 's/old/new/gi' file.txt",
+                "explanation": "Replaces all occurrences of 'old' with 'new' case-insensitively.",
+                "tags": ["substitute", "replace", "case-insensitive"]
+            },
+            {
+                "name": "Substitute on a specific line",
+                "command": "sed '3s/old/new/' file.txt",
+                "explanation": "Replaces 'old' with 'new' only on line 3.",
+                "tags": ["substitute", "replace", "line"]
+            },
+            {
+                "name": "Substitute in a range of lines",
+                "command": "sed '5,10s/old/new/g' file.txt",
+                "explanation": "Replaces 'old' with 'new' on lines 5 through 10.",
+                "tags": ["substitute", "replace", "range"]
+            },
+            {
+                "name": "Substitute using different delimiter",
+                "command": "sed 's|old|new|g' file.txt",
+                "explanation": "Uses '|' as a delimiter instead of '/'. Useful when dealing with paths.",
+                "tags": ["substitute", "replace", "delimiter"]
+            }
+        ],
+        "Deletion": [
+            {
+                "name": "Delete lines matching a pattern",
+                "command": "sed '/pattern/d' file.txt",
+                "explanation": "Deletes all lines containing 'pattern'.",
+                "tags": ["delete", "pattern"]
+            },
+            {
+                "name": "Delete a specific line",
+                "command": "sed '5d' file.txt",
+                "explanation": "Deletes the 5th line.",
+                "tags": ["delete", "line"]
+            },
+            {
+                "name": "Delete a range of lines",
+                "command": "sed '5,10d' file.txt",
+                "explanation": "Deletes lines 5 through 10.",
+                "tags": ["delete", "range"]
+            },
+            {
+                "name": "Delete empty lines",
+                "command": "sed '/^$/d' file.txt",
+                "explanation": "Deletes all empty lines.",
+                "tags": ["delete", "empty", "blank"]
+            }
+        ],
+        "Insertion and Appending": [
+            {
+                "name": "Insert text before a match",
+                "command": "sed '/pattern/i\\new text' file.txt",
+                "explanation": "Inserts 'new text' before each line containing 'pattern'.",
+                "tags": ["insert", "before", "pattern"]
+            },
+            {
+                "name": "Append text after a match",
+                "command": "sed '/pattern/a\\new text' file.txt",
+                "explanation": "Appends 'new text' after each line containing 'pattern'.",
+                "tags": ["append", "after", "pattern"]
+            },
+            {
+                "name": "Insert text at a specific line",
+                "command": "sed '3i\\new text' file.txt",
+                "explanation": "Inserts 'new text' before line 3.",
+                "tags": ["insert", "before", "line"]
+            },
+            {
+                "name": "Append text at a specific line",
+                "command": "sed '3a\\new text' file.txt",
+                "explanation": "Appends 'new text' after line 3.",
+                "tags": ["append", "after", "line"]
+            }
+        ],
+        "Printing": [
+            {
+                "name": "Print lines matching a pattern",
+                "command": "sed -n '/pattern/p' file.txt",
+                "explanation": "Prints only the lines containing 'pattern'.",
+                "tags": ["print", "pattern"]
+            },
+            {
+                "name": "Print a specific line",
+                "command": "sed -n '5p' file.txt",
+                "explanation": "Prints the 5th line.",
+                "tags": ["print", "line"]
+            },
+            {
+                "name": "Print a range of lines",
+                "command": "sed -n '5,10p' file.txt",
+                "explanation": "Prints lines 5 through 10.",
+                "tags": ["print", "range"]
+            }
+        ],
+        "Other": [
+            {
+                "name": "In-place editing with backup",
+                "command": "sed -i.bak 's/old/new/g' file.txt",
+                "explanation": "Edits file.txt in-place and creates a backup file named file.txt.bak.",
+                "tags": ["in-place", "edit", "backup"]
+            },
+            {
+                "name": "Use extended regular expressions",
+                "command": "sed -E 's/(foo|bar)/baz/g' file.txt",
+                "explanation": "Uses extended regular expressions.",
+                "tags": ["regex", "extended"]
+            },
+            {
+                "name": "Execute multiple sed commands",
+                "command": "sed -e 's/a/b/g' -e 's/c/d/g' file.txt",
+                "explanation": "Executes multiple sed commands on the input.",
+                "tags": ["multiple", "commands"]
+            }
+        ]
+    }
+}

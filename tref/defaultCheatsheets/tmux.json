@@ -1,0 +1,150 @@
+{
+    "tmux Cheatsheet": {
+        "Session Management": [
+            {
+                "name": "Start a new session",
+                "command": "tmux new -s <session-name>",
+                "explanation": "Starts a new named tmux session.",
+                "tags": ["session", "new", "create"]
+            },
+            {
+                "name": "List sessions",
+                "command": "tmux ls",
+                "explanation": "Lists all running tmux sessions.",
+                "tags": ["session", "list"]
+            },
+            {
+                "name": "Attach to a session",
+                "command": "tmux attach -t <session-name>",
+                "explanation": "Attaches to a running tmux session.",
+                "tags": ["session", "attach"]
+            },
+            {
+                "name": "Detach from a session",
+                "command": "Ctrl+b d",
+                "explanation": "Detaches from the current session.",
+                "tags": ["session", "detach"]
+            },
+            {
+                "name": "Kill a session",
+                "command": "tmux kill-session -t <session-name>",
+                "explanation": "Kills a specific tmux session.",
+                "tags": ["session", "kill", "delete"]
+            },
+            {
+                "name": "Rename session",
+                "command": "Ctrl+b $",
+                "explanation": "Rename the current session.",
+                "tags": ["session", "rename"]
+            }
+        ],
+        "Window Management": [
+            {
+                "name": "Create a new window",
+                "command": "Ctrl+b c",
+                "explanation": "Creates a new window in the current session.",
+                "tags": ["window", "new", "create"]
+            },
+            {
+                "name": "List windows",
+                "command": "Ctrl+b w",
+                "explanation": "Lists all windows in the current session.",
+                "tags": ["window", "list"]
+            },
+            {
+                "name": "Switch to next window",
+                "command": "Ctrl+b n",
+                "explanation": "Switches to the next window.",
+                "tags": ["window", "next", "switch"]
+            },
+            {
+                "name": "Switch to previous window",
+                "command": "Ctrl+b p",
+                "explanation": "Switches to the previous window.",
+                "tags": ["window", "previous", "switch"]
+            },
+            {
+                "name": "Switch to a specific window",
+                "command": "Ctrl+b <number>",
+                "explanation": "Switches to a window by its number.",
+                "tags": ["window", "switch", "number"]
+            },
+            {
+                "name": "Rename window",
+                "command": "Ctrl+b ,",
+                "explanation": "Rename the current window.",
+                "tags": ["window", "rename"]
+            },
+            {
+                "name": "Kill current window",
+                "command": "Ctrl+b &",
+                "explanation": "Kills the current window.",
+                "tags": ["window", "kill", "delete"]
+            }
+        ],
+        "Pane Management": [
+            {
+                "name": "Split pane vertically",
+                "command": "Ctrl+b %",
+                "explanation": "Splits the current pane into two, side-by-side.",
+                "tags": ["pane", "split", "vertical"]
+            },
+            {
+                "name": "Split pane horizontally",
+                "command": "Ctrl+b \"",
+                "explanation": "Splits the current pane into two, one above the other.",
+                "tags": ["pane", "split", "horizontal"]
+            },
+            {
+                "name": "Switch between panes",
+                "command": "Ctrl+b <arrow-key>",
+                "explanation": "Switches to the pane in the direction of the arrow key.",
+                "tags": ["pane", "switch", "navigate"]
+            },
+            {
+                "name": "Close current pane",
+                "command": "Ctrl+b x",
+                "explanation": "Closes the current pane.",
+                "tags": ["pane", "close", "kill", "delete"]
+            },
+            {
+                "name": "Toggle pane zoom",
+                "command": "Ctrl+b z",
+                "explanation": "Zooms in on the current pane, making it fill the window. Press again to unzoom.",
+                "tags": ["pane", "zoom", "maximize"]
+            },
+            {
+                "name": "Swap panes",
+                "command": "Ctrl+b { or }",
+                "explanation": "Swaps the current pane with the previous or next pane.",
+                "tags": ["pane", "swap", "move"]
+            }
+        ],
+        "Copy Mode": [
+            {
+                "name": "Enter copy mode",
+                "command": "Ctrl+b [",
+                "explanation": "Enters copy mode to scroll and select text.",
+                "tags": ["copy", "scroll"]
+            },
+            {
+                "name": "Start selection",
+                "command": "Space",
+                "explanation": "In copy mode, starts selecting text.",
+                "tags": ["copy", "select"]
+            },
+            {
+                "name": "Copy selection",
+                "command": "Enter",
+                "explanation": "In copy mode, copies the selected text.",
+                "tags": ["copy", "yank"]
+            },
+            {
+                "name": "Paste buffer",
+                "command": "Ctrl+b ]",
+                "explanation": "Pastes the most recently copied text.",
+                "tags": ["paste"]
+            }
+        ]
+    }
+}
