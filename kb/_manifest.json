@@ -1,0 +1,21 @@
+{
+  "generated_at": "2025-03-02",
+  "libraries": {
+    "pandas": {
+      "versions": ["2.2", "2.2.0", "latest"],
+      "latest": "2.2"
+    },
+    "polars": {
+      "versions": ["0.20", "0.20.0"],
+      "latest": "0.20"
+    },
+    "git": {
+      "versions": ["2.44", "2.44.0"],
+      "latest": "2.44"
+    },
+    "docker": {
+      "versions": ["26.1", "26.1.0"],
+      "latest": "26.1"
+    }
+  }
+}
