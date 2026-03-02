@@ -13,9 +13,12 @@ class SearchResult:
     version: str
     item: str
     signature: str
+    section: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data["confidence"] = self.score
+        return data
 
 
 @dataclass(slots=True)
@@ -28,6 +31,7 @@ class AskResponse:
     autodetected_library: bool = False
     freshness: Dict[str, Any] | None = None
     provenance: Dict[str, Any] | None = None
+    guidance: Dict[str, Any] | None = None
     warnings: List[str] | None = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -40,5 +44,6 @@ class AskResponse:
             "autodetected_library": self.autodetected_library,
             "freshness": self.freshness,
             "provenance": self.provenance,
+            "guidance": self.guidance,
             "warnings": self.warnings or [],
         }

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import statistics
+import sys
 import time
 import tracemalloc
 from pathlib import Path
@@ -17,7 +18,6 @@ from tref.api import ask
 from tref.config import (
     CUSTOM_INDEX_ROOT,
     DEFAULT_FRESHNESS_POLICY,
-    INDEX_ROOT,
     get_remote_settings,
     load_remote_config,
     reset_remote_config,
@@ -65,9 +65,30 @@ def _print_results(payload: dict) -> None:
     for warning in payload.get("warnings", []):
         console.print(f"[yellow]warning:[/yellow] {warning}")
 
+    guidance = payload.get("guidance") or {}
+    if guidance:
+        summary = (
+            f"[bold]Command/Function:[/bold] {guidance.get('command_or_function')}\n"
+            f"[bold]Signature:[/bold] {guidance.get('signature')}\n"
+            f"[bold]Confidence:[/bold] {guidance.get('confidence', 0.0):.3f}"
+        )
+        if guidance.get("returns"):
+            summary += f"\n[bold]Returns:[/bold] {guidance['returns']['citation']}"
+        console.print(Panel(summary, title="Guidance Scope", border_style="blue"))
+
+        for caution in guidance.get("cautions", []):
+            console.print(f"[red]caution:[/red] {caution['citation']} (confidence={caution['confidence']:.3f})")
+
+        for example in guidance.get("examples", []):
+            console.print(f"[green]example:[/green] {example['citation']} (confidence={example['confidence']:.3f})")
+
     for idx, result in enumerate(payload["results"], start=1):
-        title = f"{idx}. {result['item']}  score={result['score']:.3f}"
-        body = f"[bold]Signature:[/bold] {result['signature']}\n[bold]Citation:[/bold] {result['citation']}"
+        title = f"{idx}. {result['item']}  confidence={result['confidence']:.3f}"
+        body = (
+            f"[bold]Signature:[/bold] {result['signature']}\n"
+            f"[bold]Section:[/bold] {result.get('section', '')}\n"
+            f"[bold]Citation:[/bold] {result['citation']}"
+        )
         console.print(Panel(body, title=title, border_style="green"))
         console.print(Syntax(result["text"], "markdown", theme="ansi_dark", word_wrap=True))
 
@@ -87,89 +108,35 @@ def _exit_for_error(exc: Exception) -> None:
     raise typer.Exit(code=ExitCodes.ERROR)
 
 
-def _run_chat(
-    library: str,
+def _execute_query(
+    query_tokens: list[str],
+    library: Optional[str],
     version: Optional[str],
+    json_output: bool,
+    top_k: int,
     llm: bool,
     model: str,
-    index_root: Optional[Path],
     strict_fresh: bool,
     freshness_policy: str,
+    no_autodetect: bool,
+    index_root: Optional[Path],
 ) -> None:
-    console.print(f"Chat mode for [bold]{library}@{version or 'latest'}[/bold]. Type 'exit' to quit.")
-    while True:
-        query = typer.prompt("query").strip()
-        if query.lower() in {"exit", "quit", "q"}:
-            break
-        try:
-            payload = ask(
-                query,
-                library=library,
-                version=version,
-                llm=llm,
-                llm_model=model,
-                strict_fresh=strict_fresh,
-                freshness_policy=freshness_policy,
-                json_mode=True,
-                index_root=index_root,
-            )
-        except Exception as exc:
-            _exit_for_error(exc)
-        _print_results(payload)
-
-
-@app.callback(invoke_without_command=True)
-def main(
-    ctx: typer.Context,
-    query_parts: list[str] = typer.Argument(None, metavar="[LIB@VER] QUERY"),
-    library: Optional[str] = typer.Option(None, "--library", "-l"),
-    version: Optional[str] = typer.Option(None, "--version", "-v"),
-    json_output: bool = typer.Option(False, "--json", help="Return JSON output for agents."),
-    top_k: int = typer.Option(5, "--top-k", min=1, max=20),
-    llm: bool = typer.Option(False, "--llm", help="Generate final answer via Ollama."),
-    chat: bool = typer.Option(False, "--chat", help="Interactive multi-query mode."),
-    model: str = typer.Option("llama3.1:8b-instruct", "--model"),
-    strict_fresh: bool = typer.Option(False, "--strict-fresh", help="Fail when freshness cannot be ensured."),
-    freshness_policy: str = typer.Option(
-        DEFAULT_FRESHNESS_POLICY,
-        "--freshness-policy",
-        help="strict|warn|offline-only",
-    ),
-    no_autodetect: bool = typer.Option(False, "--no-autodetect", help="Disable query-based library detection."),
-    index_root: Optional[Path] = typer.Option(None, "--index-root", help="Override index root path."),
-) -> None:
-    if ctx.invoked_subcommand:
-        return
-
-    if not query_parts and not chat:
-        console.print(ctx.get_help())
+    query_text = " ".join(query_tokens).strip()
+    if not query_text:
+        console.print(app.get_help(typer.Context(app)))
         raise typer.Exit(code=ExitCodes.OK)
 
-    if query_parts and not library:
-        parsed_library, parsed_version = parse_library_version(query_parts[0])
+    if query_tokens and not library:
+        parsed_library, parsed_version = parse_library_version(query_tokens[0])
         if parsed_library:
             library = parsed_library
             version = version or parsed_version
-            query_parts = query_parts[1:]
+            query_tokens = query_tokens[1:]
+            query_text = " ".join(query_tokens).strip()
 
-    if chat:
-        if not library:
-            raise typer.BadParameter("chat mode requires --library or LIB@VER prefix")
-        _run_chat(
-            library=library,
-            version=version,
-            llm=llm,
-            model=model,
-            index_root=index_root,
-            strict_fresh=strict_fresh,
-            freshness_policy=freshness_policy,
-        )
-        return
-
-    query = " ".join(query_parts).strip()
     try:
         payload = ask(
-            query,
+            query_text,
             library=library,
             version=version,
             top_k=top_k,
@@ -188,6 +155,90 @@ def main(
         console.print_json(json.dumps(payload))
         return
     _print_results(payload)
+
+
+def _run_chat(
+    library: str,
+    version: Optional[str],
+    llm: bool,
+    model: str,
+    index_root: Optional[Path],
+    strict_fresh: bool,
+    freshness_policy: str,
+) -> None:
+    console.print(f"Chat mode for [bold]{library}@{version or 'latest'}[/bold]. Type 'exit' to quit.")
+    while True:
+        query = typer.prompt("query").strip()
+        if query.lower() in {"exit", "quit", "q"}:
+            break
+        _execute_query(
+            [query],
+            library,
+            version,
+            json_output=False,
+            top_k=5,
+            llm=llm,
+            model=model,
+            strict_fresh=strict_fresh,
+            freshness_policy=freshness_policy,
+            no_autodetect=False,
+            index_root=index_root,
+        )
+
+
+@app.callback(invoke_without_command=True)
+def main(ctx: typer.Context) -> None:
+    if not ctx.invoked_subcommand and len(sys.argv) == 1:
+        console.print(ctx.get_help())
+        raise typer.Exit(code=ExitCodes.OK)
+
+
+@app.command("query")
+def query_cmd(
+    query_parts: list[str] = typer.Argument(..., metavar="[LIB@VER] QUERY"),
+    library: Optional[str] = typer.Option(None, "--library", "-l"),
+    version: Optional[str] = typer.Option(None, "--version", "-v"),
+    json_output: bool = typer.Option(False, "--json", help="Return JSON output for agents."),
+    top_k: int = typer.Option(5, "--top-k", min=1, max=20),
+    llm: bool = typer.Option(False, "--llm", help="Generate final answer via Ollama."),
+    chat: bool = typer.Option(False, "--chat", help="Interactive multi-query mode."),
+    model: str = typer.Option("llama3.1:8b-instruct", "--model"),
+    strict_fresh: bool = typer.Option(False, "--strict-fresh", help="Fail when freshness cannot be ensured."),
+    freshness_policy: str = typer.Option(
+        DEFAULT_FRESHNESS_POLICY,
+        "--freshness-policy",
+        help="strict|warn|offline-only",
+    ),
+    no_autodetect: bool = typer.Option(False, "--no-autodetect", help="Disable query-based library detection."),
+    index_root: Optional[Path] = typer.Option(None, "--index-root", help="Override index root path."),
+) -> None:
+    if chat:
+        if not library:
+            raise typer.BadParameter("chat mode requires --library")
+        _run_chat(
+            library=library,
+            version=version,
+            llm=llm,
+            model=model,
+            index_root=index_root,
+            strict_fresh=strict_fresh,
+            freshness_policy=freshness_policy,
+        )
+        return
+
+    _execute_query(
+        query_parts,
+        library,
+        version,
+        json_output,
+        top_k,
+        llm,
+        model,
+        strict_fresh,
+        freshness_policy,
+        no_autodetect,
+        index_root,
+    )
 
 
 @app.command("update")
@@ -325,4 +376,19 @@ def build_index_cmd(
 
 
 def run() -> None:
+    known = {
+        "query",
+        "update",
+        "status",
+        "doctor",
+        "bench",
+        "remote",
+        "build-index",
+        "--help",
+        "-h",
+        "--install-completion",
+        "--show-completion",
+    }
+    if len(sys.argv) > 1 and sys.argv[1] not in known:
+        sys.argv.insert(1, "query")
     app()
