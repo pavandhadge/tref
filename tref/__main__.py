@@ -1,5 +1,4 @@
-import sys
-from tref.cli import main
+from tref.cli import run
 
-if __name__ == '__main__':
-    sys.exit(main())
+if __name__ == "__main__":
+    run()

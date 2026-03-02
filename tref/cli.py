@@ -1,171 +1,218 @@
-import argparse
-import sys
-import numpy as np
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from tref.cheatsheet import CheatSheetManager
-from tref.embeddings import EmbeddingManager
-from tref.search import SearchManager
-from tref.config import get_config_dir
+from typing import Optional
+
+import typer
+from rich.console import Console
+from rich.panel import Panel
+from rich.syntax import Syntax
+
+from tref.api import ask
+from tref.config import (
+    CUSTOM_INDEX_ROOT,
+    INDEX_ROOT,
+    get_remote_settings,
+    load_remote_config,
+    reset_remote_config,
+    save_remote_config,
+)
+from tref.indexer import build_indexes
+from tref.kb import parse_library_version
+from tref.updater import freshness_status, update_indexes
+
+app = typer.Typer(
+    add_completion=True,
+    no_args_is_help=False,
+    help="tref: offline-first reference retrieval for versioned developer docs.",
+)
+console = Console()
 
 
-def load_embeddings_and_meta(config_dir: Path):
-    embeddings_file = config_dir / "vectors.npy"
-    meta_file = config_dir / "meta.jsonl"
-    if not embeddings_file.exists() or not meta_file.exists():
-        return None, None
-    embeddings = np.load(embeddings_file)
-    with open(meta_file, 'r') as f:
-        metadata = [json.loads(line) for line in f]
-    return embeddings, metadata
-
-def update_embeddings(manager: CheatSheetManager, emb_mgr: EmbeddingManager, config_dir: Path):
-    print("Checking for cheat sheet updates...")
-    hashes_file = config_dir / "hashes.json"
-    if hashes_file.exists():
-        with open(hashes_file, 'r') as f:
-            hashes = json.load(f)
-    else:
-        hashes = {}
-
-    updated_cheatsheets = []
-    for tool in manager.list_cheatsheets():
-        current_hash = manager.get_cheatsheet_hash(tool)
-        if hashes.get(tool) != current_hash:
-            updated_cheatsheets.append(tool)
-            hashes[tool] = current_hash
-
-    if not updated_cheatsheets:
-        print("Embeddings are already up to date.")
+def _print_results(payload: dict) -> None:
+    if not payload["results"]:
+        console.print("[yellow]No results found.[/yellow]")
         return
 
-    print(f"Generating embeddings for {len(updated_cheatsheets)} updated cheat sheets...")
-    entries = []
-    texts = []
-    for tool in manager.list_cheatsheets():
-        try:
-            content = manager.read_cheatsheet(tool)
-            tool_name = next(iter(content))
-            sections = content[tool_name]
-            for section, items in sections.items():
-                for item in items:
-                    entries.append({
-                        'tool': tool_name.replace(" Cheatsheet", "").lower(),
-                        'name': item['name'],
-                        'command': item['command'],
-                        'explanation': item['explanation'],
-                        'tags': item.get('tags', []) + [section]
-                    })
-                    texts.append(f"{item['name']} {item['explanation']}")
-        except Exception as e:
-            print(f"Skipping {tool}: {e}")
-            continue
-    if not entries:
-        print("No valid cheat sheets found to process")
-        return
-    full_embeddings = emb_mgr.encode_batch(texts)
-    np.save(config_dir / "vectors.npy", full_embeddings)
-    with open(config_dir / "meta.jsonl", 'w') as f:
-        for idx, entry in enumerate(entries):
-            entry['index'] = idx
-            f.write(json.dumps(entry) + '\n')
-    with open(hashes_file, 'w') as f:
-        json.dump(hashes, f, indent=2)
-    print(f"Generated {len(entries)} embeddings from {len(manager.list_cheatsheets())} cheat sheets")
-
-def interactive_search(manager: CheatSheetManager, search_mgr: SearchManager):
-    print("Available tools:", ", ".join(manager.list_cheatsheets()))
-    while True:
-        try:
-            tool = input("\nEnter tool name (or 'quit'): ").strip()
-            if tool.lower() in ('quit', 'exit', 'q'):
-                break
-            if tool not in manager.list_cheatsheets():
-                print(f"No cheat sheet for '{tool}'. Available: {', '.join(manager.list_cheatsheets())}")
-                continue
-            query = input("Enter your query: ").strip()
-            if not query:
-                continue
-            results = search_mgr.semantic_search(tool, query)
-            if not results:
-                print("\nNo results found")
-                continue
-            print("\nTop results:")
-            for i, res in enumerate(results, 1):
-                print(f"\n{i}. {res['name']} (Score: {res['score']:.3f})")
-                print(f"   Command: {res['command']}")
-                print(f"   Explanation: {res['explanation']}")
-        except (KeyboardInterrupt, EOFError):
-            print("\nGoodbye!")
-            break
-        except Exception as e:
-            print(f"\nError: {e}")
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Cheat sheet manager with semantic search",
-        usage="%(prog)s [command] [options]"
-    )
-    parser.add_argument('--list', action='store_true', help='List all cheat sheets')
-    parser.add_argument('--read', metavar='TOOL', help='Read a cheat sheet')
-    parser.add_argument('--edit', metavar='TOOL', help='Edit a cheat sheet')
-    parser.add_argument('--add', metavar='TOOL', help='Add a new cheat sheet')
-    parser.add_argument('--delete', metavar='TOOL', help='Delete a cheat sheet')
-    parser.add_argument('--search', nargs=2, metavar=('TOOL', 'QUERY'), help='Search a cheat sheet')
-    parser.add_argument('--interactive', action='store_true', help='Launch interactive search')
-    parser.add_argument('--update-embeddings', action='store_true', help='Update embeddings from cheat sheets')
-    parser.add_argument('--reset', action='store_true', help='Reset all cheat sheets to default')
-    args = parser.parse_args()
-    manager = CheatSheetManager()
-    emb_mgr = EmbeddingManager()
-    config_dir = get_config_dir()
-    try:
-        if args.list:
-            print("Available cheat sheets:")
-            for sheet in manager.list_cheatsheets():
-                print(f"- {sheet}")
-        elif args.read:
-            try:
-                cheatsheet = manager.read_cheatsheet(args.read)
-                print(json.dumps(cheatsheet, indent=2))
-            except FileNotFoundError as e:
-                print(f"Error: {e}")
-        elif args.edit:
-            manager.edit_cheatsheet(args.edit)
-        elif args.add:
-            manager.add_cheatsheet(args.add)
-        elif args.delete:
-            manager.delete_cheatsheet(args.delete)
-        elif args.search:
-            embeddings, metadata = load_embeddings_and_meta(config_dir)
-            if embeddings is None or metadata is None:
-                print("No embeddings found. Run --update-embeddings first.")
-                return
-            search_mgr = SearchManager(embeddings, metadata)
-            results = search_mgr.semantic_search(args.search[0], args.search[1])
-            if not results:
-                print("No results found")
-            else:
-                print(f"Top results for '{args.search[1]}':")
-                for i, res in enumerate(results, 1):
-                    print(f"\n{i}. {res['name']} (Score: {res['score']:.3f})")
-                    print(f"   Command: {res['command']}")
-                    print(f"   Explanation: {res['explanation']}")
-        elif args.interactive:
-            embeddings, metadata = load_embeddings_and_meta(config_dir)
-            if embeddings is None or metadata is None:
-                print("No embeddings found. Run --update-embeddings first.")
-                return
-            search_mgr = SearchManager(embeddings, metadata)
-            interactive_search(manager, search_mgr)
-        elif args.update_embeddings:
-            update_embeddings(manager, emb_mgr, config_dir)
-        elif args.reset:
-            manager.reset_cheatsheets()
-            update_embeddings(manager, emb_mgr, config_dir)
-            print("Cheat sheets have been reset to default.")
+    header = f"{payload['library']}@{payload['version']}  query: {payload['query']}"
+    fresh = payload.get("freshness") or {}
+    if fresh:
+        if fresh.get("fresh", False):
+            header = f"{header}\nindex freshness: fresh (age_days={fresh.get('age_days', 0)})"
         else:
-            parser.print_help()
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+            header = f"{header}\nindex freshness: stale/unverified"
+    console.print(Panel(header, title="tref", border_style="cyan"))
+    for warning in payload.get("warnings", []):
+        console.print(f"[yellow]warning:[/yellow] {warning}")
+    for idx, result in enumerate(payload["results"], start=1):
+        title = f"{idx}. {result['item']}  score={result['score']:.3f}"
+        body = f"[bold]Signature:[/bold] {result['signature']}\n[bold]Citation:[/bold] {result['citation']}"
+        console.print(Panel(body, title=title, border_style="green"))
+        console.print(Syntax(result["text"], "markdown", theme="ansi_dark", word_wrap=True))
+
+    if payload.get("answer"):
+        console.print(Panel(payload["answer"], title="LLM Answer", border_style="magenta"))
+
+
+def _run_chat(
+    library: str,
+    version: Optional[str],
+    llm: bool,
+    model: str,
+    index_root: Optional[Path],
+    strict_fresh: bool,
+) -> None:
+    console.print(f"Chat mode for [bold]{library}@{version or 'latest'}[/bold]. Type 'exit' to quit.")
+    while True:
+        query = typer.prompt("query").strip()
+        if query.lower() in {"exit", "quit", "q"}:
+            break
+        payload = ask(
+            query,
+            library=library,
+            version=version,
+            llm=llm,
+            llm_model=model,
+            strict_fresh=strict_fresh,
+            json_mode=True,
+            index_root=index_root,
+        )
+        _print_results(payload)
+
+
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    query_parts: list[str] = typer.Argument(None, metavar="[LIB@VER] QUERY"),
+    library: Optional[str] = typer.Option(None, "--library", "-l"),
+    version: Optional[str] = typer.Option(None, "--version", "-v"),
+    json_output: bool = typer.Option(False, "--json", help="Return JSON output for agents."),
+    top_k: int = typer.Option(5, "--top-k", min=1, max=20),
+    llm: bool = typer.Option(False, "--llm", help="Generate final answer via Ollama."),
+    chat: bool = typer.Option(False, "--chat", help="Interactive multi-query mode."),
+    model: str = typer.Option("llama3.1:8b-instruct", "--model"),
+    strict_fresh: bool = typer.Option(
+        False,
+        "--strict-fresh",
+        help="Fail if freshness cannot be verified or local index is stale.",
+    ),
+    index_root: Optional[Path] = typer.Option(None, "--index-root", help="Override index root path."),
+) -> None:
+    if ctx.invoked_subcommand:
+        return
+
+    if not query_parts and not chat:
+        console.print(ctx.get_help())
+        raise typer.Exit(code=0)
+
+    if query_parts and not library:
+        parsed_library, parsed_version = parse_library_version(query_parts[0])
+        if parsed_library:
+            library = parsed_library
+            version = version or parsed_version
+            query_parts = query_parts[1:]
+
+    if chat:
+        if not library:
+            raise typer.BadParameter("chat mode requires --library or LIB@VER prefix")
+        _run_chat(
+            library=library,
+            version=version,
+            llm=llm,
+            model=model,
+            index_root=index_root,
+            strict_fresh=strict_fresh,
+        )
+        return
+
+    query = " ".join(query_parts).strip()
+    payload = ask(
+        query,
+        library=library,
+        version=version,
+        top_k=top_k,
+        json_mode=True,
+        llm=llm,
+        llm_model=model,
+        strict_fresh=strict_fresh,
+        index_root=index_root,
+    )
+
+    if json_output:
+        console.print_json(json.dumps(payload))
+        return
+    _print_results(payload)
+
+
+@app.command("update")
+def update_cmd(
+    strict_verify: bool = typer.Option(True, "--strict-verify/--no-strict-verify"),
+) -> None:
+    """Download latest prebuilt indexes from GitHub Releases."""
+    update_indexes(silent=False, strict_verify=strict_verify)
+
+
+@app.command("status")
+def status_cmd() -> None:
+    """Show index freshness state."""
+    payload = {
+        "freshness": freshness_status(),
+        "remote": get_remote_settings(),
+    }
+    console.print_json(json.dumps(payload, indent=2))
+
+
+remote_app = typer.Typer(help="Manage remote KB/release endpoints.")
+app.add_typer(remote_app, name="remote")
+
+
+@remote_app.command("show")
+def remote_show() -> None:
+    console.print_json(json.dumps(get_remote_settings(), indent=2))
+
+
+@remote_app.command("set")
+def remote_set(
+    releases_api_url: Optional[str] = typer.Option(None, "--releases-api-url"),
+    kb_manifest_url: Optional[str] = typer.Option(None, "--kb-manifest-url"),
+    release_asset_name: Optional[str] = typer.Option(None, "--release-asset-name"),
+    release_checksum_asset_name: Optional[str] = typer.Option(None, "--release-checksum-asset-name"),
+) -> None:
+    current = load_remote_config()
+    updates = {}
+    if releases_api_url:
+        updates["releases_api_url"] = releases_api_url
+    if kb_manifest_url:
+        updates["kb_manifest_url"] = kb_manifest_url
+    if release_asset_name:
+        updates["release_asset_name"] = release_asset_name
+    if release_checksum_asset_name:
+        updates["release_checksum_asset_name"] = release_checksum_asset_name
+    if not updates:
+        raise typer.BadParameter("No values provided to set.")
+    current.update(updates)
+    save_remote_config(current)
+    console.print("[green]Remote configuration updated.[/green]")
+    console.print_json(json.dumps(get_remote_settings(), indent=2))
+
+
+@remote_app.command("reset")
+def remote_reset() -> None:
+    reset_remote_config()
+    console.print("[green]Remote configuration reset to defaults/env.[/green]")
+    console.print_json(json.dumps(get_remote_settings(), indent=2))
+
+
+@app.command("build-index")
+def build_index_cmd(
+    kb_path: Path = typer.Argument(..., exists=True, file_okay=False, dir_okay=True),
+    output: Path = typer.Option(CUSTOM_INDEX_ROOT, "--output", "-o"),
+) -> None:
+    """Build FAISS indexes from KB markdown files."""
+    summary = build_indexes(kb_root=kb_path, output_root=output)
+    console.print_json(json.dumps(summary))
+
+
+def run() -> None:
+    app()
