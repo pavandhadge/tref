@@ -27,6 +27,7 @@ class AskResponse:
     answer: str | None = None
     autodetected_library: bool = False
     freshness: Dict[str, Any] | None = None
+    provenance: Dict[str, Any] | None = None
     warnings: List[str] | None = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -38,5 +39,6 @@ class AskResponse:
             "answer": self.answer,
             "autodetected_library": self.autodetected_library,
             "freshness": self.freshness,
+            "provenance": self.provenance,
             "warnings": self.warnings or [],
         }

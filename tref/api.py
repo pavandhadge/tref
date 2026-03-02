@@ -5,7 +5,8 @@ from typing import Any
 
 import httpx
 
-from tref.config import DEFAULT_TOP_K, INDEX_ROOT, OLLAMA_URL
+from tref.config import DEFAULT_FRESHNESS_POLICY, DEFAULT_TOP_K, INDEX_ROOT, OLLAMA_URL
+from tref.errors import DetectionError
 from tref.kb import detect_library_from_query, resolve_version, split_inline_library_version
 from tref.models import AskResponse
 from tref.retrieval import Retriever
@@ -39,6 +40,8 @@ def ask(
     llm: bool = False,
     llm_model: str = "llama3.1:8b-instruct",
     strict_fresh: bool = False,
+    freshness_policy: str = DEFAULT_FRESHNESS_POLICY,
+    no_autodetect: bool = False,
     index_root: Path | None = None,
 ) -> dict[str, Any] | AskResponse:
     clean_query = query.strip()
@@ -48,39 +51,68 @@ def ask(
 
     parsed_library, parsed_version, stripped_query = split_inline_library_version(clean_query)
     autodetected = False
+    warnings: list[str] = []
+
     if library is None and parsed_library:
         library = parsed_library
         version = version or parsed_version
         clean_query = stripped_query
 
+    if library is None and no_autodetect:
+        raise DetectionError("DETECT_DISABLED", "Library must be provided when --no-autodetect is enabled")
+
     if not library:
-        guessed_library = detect_library_from_query(clean_query, index_root=base_dir)
+        guessed_library, candidates = detect_library_from_query(clean_query, index_root=base_dir)
         if not guessed_library:
-            raise ValueError(
-                "library could not be auto-detected. Use 'library@version query' or --library."
+            raise DetectionError(
+                "DETECT_AMBIGUOUS",
+                f"Library could not be auto-detected confidently. Top candidates: {candidates}",
             )
         library = guessed_library
         autodetected = True
+        warnings.append(f"Library auto-detected as '{library}'.")
+
+    freshness = freshness_status()
+    policy = freshness_policy.lower().strip()
+    if policy not in {"strict", "warn", "offline-only"}:
+        raise ValueError("freshness_policy must be one of: strict, warn, offline-only")
+
+    if policy == "offline-only":
+        ensure_fresh = False
+        strict_fresh_effective = False
+    elif policy == "strict":
+        ensure_fresh = True
+        strict_fresh_effective = True
+    else:  # warn
+        ensure_fresh = True
+        strict_fresh_effective = strict_fresh
 
     resolved_version = resolve_version(library, version, index_root=base_dir)
     index_dir = ensure_index_exists(
         library,
         resolved_version,
         index_root=base_dir,
-        ensure_fresh=True,
-        strict_fresh=strict_fresh,
+        ensure_fresh=ensure_fresh,
+        strict_fresh=strict_fresh_effective,
     )
 
     retriever = Retriever.get(index_dir=index_dir)
     hits = retriever.search(clean_query, top_k=top_k)
-    fresh = freshness_status()
-    warnings: list[str] = []
-    if autodetected:
-        warnings.append(f"Library auto-detected as '{library}'.")
-    if not fresh.get("fresh", False):
+    freshness = freshness_status()
+
+    if not freshness.get("fresh", False):
         warnings.append("Index freshness check failed or is stale. Run `tref update`.")
-    if fresh.get("verified") is False:
+    if freshness.get("verified") is False:
         warnings.append("Index verification is missing/failed for current local snapshot.")
+
+    provenance = {
+        "index_dir": str(index_dir),
+        "embedding_model": retriever.index_meta.get("embedding_model"),
+        "kb_commit": retriever.index_meta.get("kb_commit"),
+        "build_hash": retriever.index_meta.get("build_hash"),
+        "builder_version": retriever.index_meta.get("builder_version"),
+        "freshness_policy": policy,
+    }
 
     response = AskResponse(
         library=library,
@@ -88,7 +120,8 @@ def ask(
         query=clean_query,
         results=hits,
         autodetected_library=autodetected,
-        freshness=fresh,
+        freshness=freshness,
+        provenance=provenance,
         warnings=warnings,
     )
 

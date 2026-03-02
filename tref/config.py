@@ -21,6 +21,7 @@ DEFAULT_KB_MANIFEST_URL = "https://raw.githubusercontent.com/tref-org/tref-kb/ma
 DEFAULT_RELEASES_API_URL = "https://api.github.com/repos/tref-org/tref-kb/releases/latest"
 DEFAULT_RELEASE_ASSET_NAME = "tref-indexes.tar.gz"
 DEFAULT_RELEASE_CHECKSUM_ASSET_NAME = "tref-indexes.tar.gz.sha256"
+DEFAULT_RELEASE_SIGNATURE_ASSET_NAME = "tref-indexes.tar.gz.sig"
 
 OLLAMA_URL = os.getenv("TREF_OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
 MAX_INDEX_AGE_DAYS = int(os.getenv("TREF_MAX_INDEX_AGE_DAYS", "7"))
@@ -29,6 +30,9 @@ HTTP_MAX_RETRIES = int(os.getenv("TREF_HTTP_MAX_RETRIES", "3"))
 HTTP_RETRY_BACKOFF_SECONDS = float(os.getenv("TREF_HTTP_RETRY_BACKOFF_SECONDS", "0.5"))
 UPDATE_STRICT_VERIFY = os.getenv("TREF_UPDATE_STRICT_VERIFY", "1") == "1"
 MAX_DOWNLOAD_BYTES = int(os.getenv("TREF_MAX_DOWNLOAD_BYTES", str(1024 * 1024 * 1024)))
+COSIGN_KEY_PATH = os.getenv("TREF_COSIGN_KEY_PATH", "")
+COSIGN_BIN = os.getenv("TREF_COSIGN_BIN", "cosign")
+DEFAULT_FRESHNESS_POLICY = os.getenv("TREF_FRESHNESS_POLICY", "warn")
 
 
 def ensure_dirs() -> None:
@@ -84,12 +88,21 @@ def get_release_checksum_asset_name() -> str:
     )
 
 
+def get_release_signature_asset_name() -> str:
+    return (
+        os.getenv("TREF_RELEASE_SIGNATURE_ASSET")
+        or load_remote_config().get("release_signature_asset_name")
+        or DEFAULT_RELEASE_SIGNATURE_ASSET_NAME
+    )
+
+
 def get_remote_settings() -> dict[str, Any]:
     return {
         "kb_manifest_url": get_kb_manifest_url(),
         "releases_api_url": get_releases_api_url(),
         "release_asset_name": get_release_asset_name(),
         "release_checksum_asset_name": get_release_checksum_asset_name(),
+        "release_signature_asset_name": get_release_signature_asset_name(),
         "strict_verify": UPDATE_STRICT_VERIFY,
         "remote_config_file": str(REMOTE_CONFIG_FILE),
     }

@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
+import subprocess
 import tarfile
 import time
 from datetime import UTC, datetime, timedelta
@@ -11,6 +13,8 @@ from pathlib import Path
 import httpx
 
 from tref.config import (
+    COSIGN_BIN,
+    COSIGN_KEY_PATH,
     HTTP_MAX_RETRIES,
     HTTP_RETRY_BACKOFF_SECONDS,
     HTTP_TIMEOUT_SECONDS,
@@ -22,8 +26,10 @@ from tref.config import (
     ensure_dirs,
     get_release_asset_name,
     get_release_checksum_asset_name,
+    get_release_signature_asset_name,
     get_releases_api_url,
 )
+from tref.errors import FreshnessError, UpdateError
 
 
 def _http_get_json(url: str) -> dict:
@@ -33,7 +39,7 @@ def _http_get_json(url: str) -> dict:
             response = httpx.get(
                 url,
                 timeout=HTTP_TIMEOUT_SECONDS,
-                headers={"User-Agent": "tref/0.2.0"},
+                headers={"User-Agent": "tref/0.3.0"},
                 follow_redirects=True,
             )
             response.raise_for_status()
@@ -42,7 +48,7 @@ def _http_get_json(url: str) -> dict:
             last_error = exc
             if attempt < (HTTP_MAX_RETRIES - 1):
                 time.sleep(HTTP_RETRY_BACKOFF_SECONDS * (2**attempt))
-    raise RuntimeError(f"Failed GET {url}: {last_error}") from last_error
+    raise UpdateError("UPDATE_HTTP_ERROR", f"Failed GET {url}: {last_error}")
 
 
 def _find_asset_url(release_payload: dict, asset_name: str) -> str | None:
@@ -61,7 +67,7 @@ def _safe_extract_tar(archive_path: Path, target_dir: Path) -> None:
         for member in tf.getmembers():
             member_path = (target_dir / member.name).resolve()
             if os.path.commonpath([str(target_real), str(member_path)]) != str(target_real):
-                raise RuntimeError(f"Unsafe archive entry blocked: {member.name}")
+                raise UpdateError("UPDATE_UNSAFE_ARCHIVE", f"Unsafe archive entry blocked: {member.name}")
         tf.extractall(target_dir)
 
 
@@ -111,7 +117,7 @@ def _download_file(url: str, target_path: Path) -> int:
         "GET",
         url,
         timeout=max(HTTP_TIMEOUT_SECONDS, 60.0),
-        headers={"User-Agent": "tref/0.2.0"},
+        headers={"User-Agent": "tref/0.3.0"},
         follow_redirects=True,
     ) as stream:
         stream.raise_for_status()
@@ -119,7 +125,7 @@ def _download_file(url: str, target_path: Path) -> int:
             for chunk in stream.iter_bytes():
                 total += len(chunk)
                 if total > MAX_DOWNLOAD_BYTES:
-                    raise RuntimeError(f"Download exceeded safety limit: {MAX_DOWNLOAD_BYTES} bytes")
+                    raise UpdateError("UPDATE_DOWNLOAD_TOO_LARGE", f"Download exceeded safety limit: {MAX_DOWNLOAD_BYTES} bytes")
                 fh.write(chunk)
     return total
 
@@ -127,8 +133,7 @@ def _download_file(url: str, target_path: Path) -> int:
 def _read_checksum_file(path: Path) -> str:
     content = path.read_text(encoding="utf-8").strip().splitlines()
     if not content:
-        raise RuntimeError("Empty checksum file")
-    # supports either '<hash>' or '<hash>  <filename>'
+        raise UpdateError("UPDATE_CHECKSUM_EMPTY", "Empty checksum file")
     return content[0].split()[0].strip().lower()
 
 
@@ -140,6 +145,58 @@ def _sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def _verify_signature_with_cosign(archive_path: Path, signature_path: Path) -> bool:
+    if not COSIGN_KEY_PATH:
+        return False
+    cmd = [
+        COSIGN_BIN,
+        "verify-blob",
+        "--key",
+        COSIGN_KEY_PATH,
+        "--signature",
+        str(signature_path),
+        str(archive_path),
+    ]
+    try:
+        completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    except Exception:
+        return False
+    return completed.returncode == 0
+
+
+def _discover_stage_root(stage_dir: Path) -> Path:
+    if (stage_dir / "_manifest.json").exists():
+        return stage_dir
+    for child in stage_dir.iterdir():
+        if child.is_dir() and (child / "_manifest.json").exists():
+            return child
+    raise UpdateError("UPDATE_INVALID_ARCHIVE", "Extracted archive does not contain _manifest.json")
+
+
+def _atomic_replace_index_tree(stage_root: Path) -> None:
+    ensure_dirs()
+    backup_root = INDEX_ROOT.parent / f"{INDEX_ROOT.name}.backup"
+    temp_new_root = INDEX_ROOT.parent / f"{INDEX_ROOT.name}.new"
+
+    shutil.rmtree(temp_new_root, ignore_errors=True)
+    shutil.copytree(stage_root, temp_new_root)
+
+    # Backup current indexes for rollback.
+    if INDEX_ROOT.exists():
+        shutil.rmtree(backup_root, ignore_errors=True)
+        INDEX_ROOT.replace(backup_root)
+
+    try:
+        temp_new_root.replace(INDEX_ROOT)
+    except Exception as exc:
+        if backup_root.exists() and not INDEX_ROOT.exists():
+            backup_root.replace(INDEX_ROOT)
+        raise UpdateError("UPDATE_ATOMIC_SWAP_FAILED", f"Atomic swap failed: {exc}") from exc
+    finally:
+        shutil.rmtree(backup_root, ignore_errors=True)
+        shutil.rmtree(temp_new_root, ignore_errors=True)
+
+
 def update_indexes(silent: bool = False, strict_verify: bool = UPDATE_STRICT_VERIFY) -> Path:
     ensure_dirs()
     releases_api = get_releases_api_url()
@@ -147,28 +204,33 @@ def update_indexes(silent: bool = False, strict_verify: bool = UPDATE_STRICT_VER
 
     archive_name = get_release_asset_name()
     checksum_name = get_release_checksum_asset_name()
+    signature_name = get_release_signature_asset_name()
 
     asset_url = _find_asset_url(release, archive_name)
     if not asset_url:
-        raise RuntimeError(f"Release asset '{archive_name}' not found")
+        raise UpdateError("UPDATE_ASSET_NOT_FOUND", f"Release asset '{archive_name}' not found")
 
     checksum_url = _find_asset_url(release, checksum_name)
+    signature_url = _find_asset_url(release, signature_name)
+
     if strict_verify and not checksum_url:
-        raise RuntimeError(
-            f"Strict verification enabled but checksum asset '{checksum_name}' was not found"
+        raise UpdateError(
+            "UPDATE_CHECKSUM_MISSING",
+            f"Strict verification enabled but checksum asset '{checksum_name}' was not found",
         )
 
-    archive_path = INDEX_ROOT / archive_name
+    archive_path = INDEX_ROOT.parent / archive_name
     archive_tmp = archive_path.with_suffix(archive_path.suffix + ".tmp")
     _download_file(asset_url, archive_tmp)
     archive_tmp.replace(archive_path)
 
     verified = False
+    verified_signature = False
     expected_sha = None
     actual_sha = _sha256_file(archive_path)
 
     if checksum_url:
-        checksum_path = INDEX_ROOT / checksum_name
+        checksum_path = INDEX_ROOT.parent / checksum_name
         checksum_tmp = checksum_path.with_suffix(checksum_path.suffix + ".tmp")
         _download_file(checksum_url, checksum_tmp)
         checksum_tmp.replace(checksum_path)
@@ -176,13 +238,36 @@ def update_indexes(silent: bool = False, strict_verify: bool = UPDATE_STRICT_VER
         verified = (actual_sha == expected_sha)
         checksum_path.unlink(missing_ok=True)
     elif strict_verify:
-        raise RuntimeError("Strict verification requires checksum file")
+        raise UpdateError("UPDATE_CHECKSUM_REQUIRED", "Strict verification requires checksum file")
+
+    if signature_url:
+        signature_path = INDEX_ROOT.parent / signature_name
+        signature_tmp = signature_path.with_suffix(signature_path.suffix + ".tmp")
+        _download_file(signature_url, signature_tmp)
+        signature_tmp.replace(signature_path)
+        verified_signature = _verify_signature_with_cosign(archive_path, signature_path)
+        signature_path.unlink(missing_ok=True)
 
     if strict_verify and not verified:
         archive_path.unlink(missing_ok=True)
-        raise RuntimeError("Archive checksum verification failed")
+        raise UpdateError("UPDATE_CHECKSUM_MISMATCH", "Archive checksum verification failed")
 
-    _safe_extract_tar(archive_path, INDEX_ROOT)
+    if strict_verify and COSIGN_KEY_PATH and not verified_signature:
+        archive_path.unlink(missing_ok=True)
+        raise UpdateError("UPDATE_SIGNATURE_FAILED", "Archive signature verification failed")
+
+    stage_dir = INDEX_ROOT.parent / ".tref-index-stage"
+    shutil.rmtree(stage_dir, ignore_errors=True)
+    stage_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        _safe_extract_tar(archive_path, stage_dir)
+        stage_root = _discover_stage_root(stage_dir)
+        _atomic_replace_index_tree(stage_root)
+    finally:
+        shutil.rmtree(stage_dir, ignore_errors=True)
+        archive_path.unlink(missing_ok=True)
+
     _write_update_state(
         {
             "fetched_at": datetime.now(tz=UTC).isoformat(),
@@ -191,6 +276,7 @@ def update_indexes(silent: bool = False, strict_verify: bool = UPDATE_STRICT_VER
             "release_asset_url": asset_url,
             "release_published_at": release.get("published_at"),
             "verified": verified,
+            "verified_signature": verified_signature,
             "sha256": actual_sha,
             "expected_sha256": expected_sha,
             "strict_verify": strict_verify,
@@ -198,10 +284,8 @@ def update_indexes(silent: bool = False, strict_verify: bool = UPDATE_STRICT_VER
         }
     )
 
-    archive_path.unlink(missing_ok=True)
-
     if not silent:
-        print(f"Updated indexes in {INDEX_ROOT} (verified={verified})")
+        print(f"Updated indexes in {INDEX_ROOT} (verified={verified}, signature={verified_signature})")
     return INDEX_ROOT
 
 
@@ -220,14 +304,15 @@ def ensure_index_exists(
                 update_indexes(silent=True, strict_verify=UPDATE_STRICT_VERIFY)
             except Exception:
                 if strict_fresh:
-                    raise RuntimeError(
-                        f"Indexes are stale/unverified ({status}). Update failed in strict mode."
+                    raise FreshnessError(
+                        "FRESHNESS_STALE",
+                        f"Indexes are stale/unverified ({status}). Update failed in strict mode.",
                     ) from None
 
     if candidate.exists():
         return candidate
 
-    if index_root == INDEX_ROOT:
+    if ensure_fresh and index_root == INDEX_ROOT:
         try:
             update_indexes(silent=True, strict_verify=UPDATE_STRICT_VERIFY)
         except Exception:
@@ -239,6 +324,7 @@ def ensure_index_exists(
     if version != "latest" and fallback.exists():
         return fallback
 
-    raise FileNotFoundError(
-        f"No local index for {library}@{version}. Run 'tref update' or build a custom index."
+    raise FreshnessError(
+        "INDEX_NOT_FOUND",
+        f"No local index for {library}@{version}. Run 'tref update' or build a custom index.",
     )

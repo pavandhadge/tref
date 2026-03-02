@@ -1,4 +1,4 @@
 from tref.api import ask
 
 __all__ = ["ask"]
-__version__ = "0.2.0"
+__version__ = "0.3.0"

@@ -57,7 +57,7 @@ def load_manifest(refresh: bool = False) -> dict[str, Any]:
             response = httpx.get(
                 url,
                 timeout=HTTP_TIMEOUT_SECONDS,
-                headers={"User-Agent": "tref/0.2.0"},
+                headers={"User-Agent": "tref/0.3.0"},
                 follow_redirects=True,
             )
             response.raise_for_status()
@@ -93,31 +93,47 @@ def available_libraries(index_root: Path = INDEX_ROOT) -> list[str]:
     return sorted(set(local + remote))
 
 
-def detect_library_from_query(query: str, index_root: Path = INDEX_ROOT) -> str | None:
+def detect_library_candidates(query: str, index_root: Path = INDEX_ROOT) -> list[dict[str, Any]]:
     query_lower = query.lower()
     tokens = set(WORD_RE.findall(query_lower))
-    scores: dict[str, int] = {}
+    scored: list[dict[str, Any]] = []
 
     for library in available_libraries(index_root=index_root):
         score = 0
+        reasons: list[str] = []
         if re.search(rf"\b{re.escape(library.lower())}\b", query_lower):
             score += 10
+            reasons.append("library_name")
 
-        for hint in LIBRARY_HINTS.get(library.lower(), ()):
+        for hint in LIBRARY_HINTS.get(library.lower(), ()):  # heuristic hints
             if hint in query_lower or hint in tokens:
                 score += 2
-        scores[library] = score
+                reasons.append(hint)
 
-    if not scores:
-        return None
+        scored.append({"library": library, "score": score, "reasons": reasons})
 
-    ordered = sorted(scores.items(), key=lambda item: item[1], reverse=True)
-    top_lib, top_score = ordered[0]
-    if top_score <= 0:
-        return None
-    if len(ordered) > 1 and (top_score - ordered[1][1]) < 2:
-        return None
-    return top_lib
+    scored.sort(key=lambda item: item["score"], reverse=True)
+    return scored
+
+
+def detect_library_from_query(
+    query: str,
+    index_root: Path = INDEX_ROOT,
+    min_score: int = 2,
+    min_margin: int = 2,
+) -> tuple[str | None, list[dict[str, Any]]]:
+    candidates = detect_library_candidates(query, index_root=index_root)
+    if not candidates:
+        return None, []
+
+    top = candidates[0]
+    second_score = candidates[1]["score"] if len(candidates) > 1 else -999
+
+    if top["score"] < min_score:
+        return None, candidates[:3]
+    if (top["score"] - second_score) < min_margin:
+        return None, candidates[:3]
+    return top["library"], candidates[:3]
 
 
 def resolve_version(library: str, requested: str | None, index_root: Path = INDEX_ROOT) -> str:
