@@ -13,6 +13,45 @@ from tref.retrieval import Retriever
 from tref.updater import ensure_index_exists, freshness_status
 
 
+def _build_guidance(hits: list) -> dict[str, Any]:
+    if not hits:
+        return {
+            "command_or_function": None,
+            "signature": None,
+            "returns": None,
+            "confidence": 0.0,
+            "examples": [],
+            "cautions": [],
+            "citations": [],
+        }
+
+    top = hits[0]
+    examples = []
+    cautions = []
+    citations = []
+    returns = None
+
+    for hit in hits:
+        citations.append({"citation": hit.citation, "section": hit.section, "item": hit.item})
+        section = (hit.section or "").lower()
+        if section == "examples":
+            examples.append({"text": hit.text, "citation": hit.citation, "confidence": hit.score})
+        if section in {"gotchas / version notes", "cautions", "warnings"}:
+            cautions.append({"text": hit.text, "citation": hit.citation, "confidence": hit.score})
+        if section == "returns" and returns is None:
+            returns = {"text": hit.text, "citation": hit.citation}
+
+    return {
+        "command_or_function": top.item,
+        "signature": top.signature,
+        "returns": returns,
+        "confidence": top.score,
+        "examples": examples[:3],
+        "cautions": cautions[:3],
+        "citations": citations[:8],
+    }
+
+
 def _ollama_answer(query: str, contexts: list[dict[str, Any]], model: str) -> str:
     context_blob = "\n\n".join(
         f"[{idx + 1}] {ctx['citation']}\n{ctx['text']}" for idx, ctx in enumerate(contexts)
@@ -122,6 +161,7 @@ def ask(
         autodetected_library=autodetected,
         freshness=freshness,
         provenance=provenance,
+        guidance=_build_guidance(hits),
         warnings=warnings,
     )
 

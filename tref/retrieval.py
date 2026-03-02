@@ -58,6 +58,7 @@ class Retriever:
                         "version": raw["version"],
                         "item": raw["item"],
                         "signature": raw["signature"],
+                        "section": raw.get("section", ""),
                         "query_text": f"{raw['item']} {raw['signature']} {raw['text']}",
                     }
                 )
@@ -115,6 +116,7 @@ class Retriever:
                     version=chunk["version"],
                     item=chunk["item"],
                     signature=chunk["signature"],
+                    section=chunk.get("section", ""),
                 )
             )
         return out
