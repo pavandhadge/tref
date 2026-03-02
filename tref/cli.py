@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import subprocess
 import statistics
 import sys
@@ -12,6 +13,7 @@ from typing import Optional
 
 import typer
 from rich.console import Console
+from rich.syntax import Syntax
 from rich.table import Table
 
 from tref.api import ask
@@ -140,6 +142,11 @@ def _print_code_block(code: str) -> None:
     console.print("```")
 
 
+def _print_example_code(lang: str, code: str) -> None:
+    syntax_lang = lang if lang and lang != "text" else "text"
+    console.print(Syntax(code, syntax_lang, theme="ansi_dark", word_wrap=True))
+
+
 def _print_results(payload: dict, verbose: bool = False) -> None:
     if not payload["results"]:
         console.print("[yellow]No results found.[/yellow]")
@@ -205,6 +212,8 @@ def _print_results(payload: dict, verbose: bool = False) -> None:
         if examples:
             _print_section("Examples")
             for idx, example in enumerate(examples[:2], start=1):
+                if idx > 1:
+                    console.print("")
                 ref = example.get("doc_url")
                 suffix = f" [{ref}]" if ref else ""
                 parsed = _extract_code_block(example["text"])
@@ -212,7 +221,7 @@ def _print_results(payload: dict, verbose: bool = False) -> None:
                 if parsed:
                     lang, code = parsed
                     _kv("Language", lang.lower())
-                    _print_code_block(code)
+                    _print_example_code(lang.lower(), code)
                     if suffix:
                         console.print(f"Source  {ref}")
                 else:
@@ -390,6 +399,213 @@ def _run_chat(
         )
 
 
+def _parse_on_off(value: str) -> bool:
+    v = value.strip().lower()
+    if v in {"on", "true", "1", "yes"}:
+        return True
+    if v in {"off", "false", "0", "no"}:
+        return False
+    raise ValueError("expected on/off")
+
+
+def _run_live(
+    library: Optional[str],
+    version: Optional[str],
+    llm: bool,
+    model: str,
+    index_root: Optional[Path],
+    strict_fresh: bool,
+    freshness_policy: str,
+    verbose: bool,
+    full_doc: bool,
+    lang: Optional[str],
+    top_k: int,
+) -> None:
+    state = {
+        "library": library,
+        "version": version,
+        "llm": llm,
+        "model": model,
+        "strict_fresh": strict_fresh,
+        "freshness_policy": freshness_policy,
+        "verbose": verbose,
+        "full_doc": full_doc,
+        "lang": lang,
+        "top_k": top_k,
+    }
+
+    console.print("[bold]tref live[/bold] active. Type ':help' for commands, ':exit' to quit.")
+    while True:
+        prompt = "tref[live]"
+        line = typer.prompt(prompt, prompt_suffix=" > ").strip()
+        if not line:
+            continue
+
+        if line in {":exit", ":quit", "exit", "quit", "q"}:
+            break
+
+        if line == ":help":
+            console.print(
+                "\n".join(
+                    [
+                        "Live commands:",
+                        "  :help",
+                        "  :exit",
+                        "  :context                       # show current session settings",
+                        "  :set llm <on|off>",
+                        "  :set model <ollama-model>",
+                        "  :set lang <name|auto>",
+                        "  :set topk <1-20>",
+                        "  :set verbose <on|off>",
+                        "  :set full-doc <on|off>",
+                        "  :set policy <strict|warn|offline-only>",
+                        "",
+                        "Query format examples:",
+                        "  git@2.44 create a new branch and switch",
+                        "  git@2.44 create a new branch --lang bash",
+                        "  pandas@2.2 groupby multiple columns --top-k 8 --verbose",
+                    ]
+                )
+            )
+            continue
+
+        if line == ":context":
+            console.print_json(json.dumps(state, indent=2))
+            continue
+
+        if line.startswith(":set "):
+            try:
+                parts = shlex.split(line[len(":set ") :].strip())
+            except Exception as exc:
+                console.print(f"[red]Invalid set command:[/red] {exc}")
+                continue
+            if len(parts) < 2:
+                console.print("[red]Usage:[/red] :set <key> <value>")
+                continue
+            key, value = parts[0].lower(), " ".join(parts[1:])
+            try:
+                if key == "llm":
+                    state["llm"] = _parse_on_off(value)
+                elif key == "model":
+                    state["model"] = value
+                elif key == "lang":
+                    state["lang"] = None if value.lower() == "auto" else value
+                elif key == "topk":
+                    iv = int(value)
+                    if iv < 1 or iv > 20:
+                        raise ValueError("topk must be between 1 and 20")
+                    state["top_k"] = iv
+                elif key == "verbose":
+                    state["verbose"] = _parse_on_off(value)
+                elif key in {"full-doc", "fulldoc"}:
+                    state["full_doc"] = _parse_on_off(value)
+                elif key == "policy":
+                    policy = value.lower().strip()
+                    if policy not in {"strict", "warn", "offline-only"}:
+                        raise ValueError("policy must be strict|warn|offline-only")
+                    state["freshness_policy"] = policy
+                else:
+                    raise ValueError(f"unknown key '{key}'")
+                console.print("[green]Updated.[/green]")
+            except Exception as exc:
+                console.print(f"[red]Set failed:[/red] {exc}")
+            continue
+
+        try:
+            parts = shlex.split(line)
+        except Exception as exc:
+            console.print(f"[red]Invalid query input:[/red] {exc}")
+            continue
+        if not parts:
+            continue
+
+        q_library = state["library"]
+        q_version = state["version"]
+        q_llm = bool(state["llm"])
+        q_model = str(state["model"])
+        q_verbose = bool(state["verbose"])
+        q_full_doc = bool(state["full_doc"])
+        q_lang = state["lang"]
+        q_top_k = int(state["top_k"])
+
+        # Inline overrides: allow suffix flags in query line.
+        filtered: list[str] = []
+        i = 0
+        while i < len(parts):
+            token = parts[i]
+            if token == "--lang" and (i + 1) < len(parts):
+                q_lang = parts[i + 1]
+                i += 2
+                continue
+            if token == "--model" and (i + 1) < len(parts):
+                q_model = parts[i + 1]
+                i += 2
+                continue
+            if token == "--top-k" and (i + 1) < len(parts):
+                try:
+                    v = int(parts[i + 1])
+                    if 1 <= v <= 20:
+                        q_top_k = v
+                except Exception:
+                    pass
+                i += 2
+                continue
+            if token == "--llm":
+                q_llm = True
+                i += 1
+                continue
+            if token == "--no-llm":
+                q_llm = False
+                i += 1
+                continue
+            if token == "--verbose":
+                q_verbose = True
+                i += 1
+                continue
+            if token == "--no-verbose":
+                q_verbose = False
+                i += 1
+                continue
+            if token == "--full-doc":
+                q_full_doc = True
+                i += 1
+                continue
+            if token == "--no-full-doc":
+                q_full_doc = False
+                i += 1
+                continue
+            filtered.append(token)
+            i += 1
+
+        query_tokens = filtered
+        if query_tokens:
+            parsed_library, parsed_version = parse_library_version(query_tokens[0])
+            if parsed_library:
+                q_library = parsed_library
+                q_version = parsed_version or q_version
+                query_tokens = query_tokens[1:]
+                if not query_tokens:
+                    console.print("[red]Query text missing after library@version prefix.[/red]")
+                    continue
+
+        _execute_query(
+            query_tokens,
+            q_library,
+            q_version,
+            json_output=False,
+            top_k=q_top_k,
+            llm=q_llm,
+            model=q_model,
+            strict_fresh=bool(state["strict_fresh"]),
+            freshness_policy=str(state["freshness_policy"]),
+            no_autodetect=False,
+            verbose=q_verbose,
+            full_doc=q_full_doc,
+            lang=q_lang,
+            index_root=index_root,
+        )
+
+
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context) -> None:
     if not ctx.invoked_subcommand and len(sys.argv) == 1:
@@ -451,6 +667,40 @@ def query_cmd(
         full_doc,
         lang,
         index_root,
+    )
+
+
+@app.command("live")
+def live_cmd(
+    library: Optional[str] = typer.Option(None, "--library", "-l"),
+    version: Optional[str] = typer.Option(None, "--version", "-v"),
+    llm: bool = typer.Option(False, "--llm", help="Generate final answer via Ollama."),
+    model: str = typer.Option("llama3.1:8b-instruct", "--model"),
+    top_k: int = typer.Option(5, "--top-k", min=1, max=20),
+    strict_fresh: bool = typer.Option(False, "--strict-fresh", help="Fail when freshness cannot be ensured."),
+    freshness_policy: str = typer.Option(
+        DEFAULT_FRESHNESS_POLICY,
+        "--freshness-policy",
+        help="strict|warn|offline-only",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", help="Show full retrieved chunks."),
+    full_doc: bool = typer.Option(False, "--full-doc", help="Dump the full document for the best match."),
+    lang: Optional[str] = typer.Option(None, "--lang", help="Prefer examples in this language."),
+    index_root: Optional[Path] = typer.Option(None, "--index-root", help="Override index root path."),
+) -> None:
+    """Persistent interactive mode for continuous tref queries."""
+    _run_live(
+        library=library,
+        version=version,
+        llm=llm,
+        model=model,
+        index_root=index_root,
+        strict_fresh=strict_fresh,
+        freshness_policy=freshness_policy,
+        verbose=verbose,
+        full_doc=full_doc,
+        lang=lang,
+        top_k=top_k,
     )
 
 
@@ -591,6 +841,7 @@ def build_index_cmd(
 def run() -> None:
     known = {
         "query",
+        "live",
         "update",
         "status",
         "doctor",

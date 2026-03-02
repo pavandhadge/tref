@@ -284,11 +284,6 @@ def _build_guidance(query: str, hits: list) -> dict[str, Any]:
             top = candidate
             break
 
-    by_section: dict[str, Any] = {}
-    for hit in primary_hits:
-        sec = (hit.section or "").lower()
-        by_section.setdefault(sec, hit)
-
     examples = []
     cautions = []
     citations = []
@@ -576,6 +571,8 @@ def ask(
     }
 
     guidance = _build_guidance(clean_query, hits)
+    sections: list[dict[str, Any]] = []
+    top_item: str | None = None
     if hits:
         top_item = guidance.get("command_or_function") or hits[0].item
         sections = retriever.item_document(top_item)
@@ -586,9 +583,13 @@ def ask(
     full_document = None
     query_flags = _query_flags(clean_query)
     if hits and (include_full_doc or query_flags["overview_focus"]):
+        if not top_item:
+            top_item = guidance.get("command_or_function") or hits[0].item
+        if not sections:
+            sections = retriever.item_document(top_item)
         full_document = {
             "item": top_item,
-            "sections": retriever.item_document(top_item),
+            "sections": sections,
         }
 
     response = AskResponse(

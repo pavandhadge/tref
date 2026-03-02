@@ -68,6 +68,8 @@ class Retriever:
             pass
 
         self.chunks = []
+        self._item_to_indices: dict[str, list[int]] = {}
+        self._item_metadata: dict[str, dict[str, object]] = {}
         meta_path = index_dir / "meta.json"
         self.index_meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
         with (index_dir / "chunks.jsonl").open("r", encoding="utf-8") as fh:
@@ -81,26 +83,42 @@ class Retriever:
                     order = int(chunk_id.rsplit("::", 1)[-1])
                 except Exception:
                     order = 0
-                self.chunks.append(
-                    {
-                        "id": chunk_id,
-                        "order": order,
-                        "text": raw["text"],
-                        "citation": raw["citation"],
-                        "library": raw["library"],
-                        "version": raw["version"],
-                        "item": raw["item"],
-                        "type": raw.get("type", ""),
-                        "signature": raw["signature"],
-                        "section": raw.get("section", ""),
-                        "source_url": raw.get("source_url"),
-                        "source_title": raw.get("source_title"),
-                        "source_last_updated": raw.get("source_last_updated"),
-                        "alternatives": raw.get("alternatives", []),
-                        "query_text": query_text,
-                        "query_tokens": _tokenize(query_text),
+                chunk = {
+                    "id": chunk_id,
+                    "order": order,
+                    "text": raw["text"],
+                    "citation": raw["citation"],
+                    "library": raw["library"],
+                    "version": raw["version"],
+                    "item": raw["item"],
+                    "type": raw.get("type", ""),
+                    "signature": raw["signature"],
+                    "section": raw.get("section", ""),
+                    "source_url": raw.get("source_url"),
+                    "source_title": raw.get("source_title"),
+                    "source_last_updated": raw.get("source_last_updated"),
+                    "alternatives": raw.get("alternatives", []),
+                    "query_text": query_text,
+                    "query_tokens": _tokenize(query_text),
+                }
+                idx = len(self.chunks)
+                self.chunks.append(chunk)
+                item = str(chunk["item"])
+                self._item_to_indices.setdefault(item, []).append(idx)
+                if item not in self._item_metadata:
+                    self._item_metadata[item] = {
+                        "library": chunk.get("library"),
+                        "version": chunk.get("version"),
+                        "item": item,
+                        "signature": chunk.get("signature"),
+                        "alternatives": list(chunk.get("alternatives") or []),
+                        "source_url": chunk.get("source_url"),
+                        "source_title": chunk.get("source_title"),
+                        "source_last_updated": chunk.get("source_last_updated"),
                     }
-                )
+
+        for item, idxs in self._item_to_indices.items():
+            idxs.sort(key=lambda i: int(self.chunks[i].get("order", 0)))
 
         if Retriever._embedder is None:
             Retriever._embedder = _build_embedder(model_name=model_name)
@@ -197,10 +215,10 @@ class Retriever:
         return out
 
     def item_document(self, item: str) -> list[dict[str, str]]:
-        sections = [chunk for chunk in self.chunks if chunk["item"] == item]
-        sections.sort(key=lambda c: int(c.get("order", 0)))
+        indices = self._item_to_indices.get(item, [])
         out: list[dict[str, str]] = []
-        for section in sections:
+        for i in indices:
+            section = self.chunks[i]
             out.append(
                 {
                     "section": section.get("section", ""),
@@ -213,16 +231,4 @@ class Retriever:
         return out
 
     def item_metadata(self, item: str) -> dict[str, object]:
-        for chunk in self.chunks:
-            if chunk["item"] == item:
-                return {
-                    "library": chunk.get("library"),
-                    "version": chunk.get("version"),
-                    "item": chunk.get("item"),
-                    "signature": chunk.get("signature"),
-                    "alternatives": list(chunk.get("alternatives") or []),
-                    "source_url": chunk.get("source_url"),
-                    "source_title": chunk.get("source_title"),
-                    "source_last_updated": chunk.get("source_last_updated"),
-                }
-        return {}
+        return dict(self._item_metadata.get(item, {}))
