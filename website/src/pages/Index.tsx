@@ -1,305 +1,206 @@
-import {
-  Terminal,
-  ArrowDown,
-  Github,
-  Code,
-  BookOpen,
-  Download,
-  RefreshCw,
-  Server,
-  Shield,
-  Zap,
-} from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, Code2, Download, Github, ShieldCheck, Sparkles, Terminal, Zap } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import FeatureCard from "@/components/FeatureCard";
 import TerminalDemo from "@/components/TerminalDemo";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
-import { Link } from "react-router-dom";
 
 const Index = () => {
   const features = [
     {
-      icon: <BookOpen className="h-6 w-6" />,
+      icon: <BookOpen className="h-5 w-5" />,
       title: "Versioned Retrieval",
-      description: "Ask natural language questions against exact docs snapshots like `pandas@2.2`.",
-      command: "tref \"pandas@2.2 groupby multiple columns agg mean\"",
+      description: "Ask against exact snapshots like pandas@2.2, git@2.44, docker@26.1 with deterministic context.",
+      command: 'tref "pandas@2.2 groupby multiple columns agg mean"',
     },
     {
-      icon: <Code className="h-6 w-6" />,
+      icon: <Code2 className="h-5 w-5" />,
       title: "Structured Output",
-      description: "Readable sections: description, signature, cautions, examples, references, and alternatives.",
-      command: "tref \"git@2.44 create a new branch and switch\"",
+      description: "Each answer is organized into description, signature, cautions, examples, references, and alternatives.",
+      command: 'tref "git@2.44 create a new branch and switch"',
     },
     {
-      icon: <RefreshCw className="h-6 w-6" />,
-      title: "Trusted Updates",
-      description: "Checksum-verified updates with optional required signature verification.",
+      icon: <Sparkles className="h-5 w-5" />,
+      title: "Live Session Mode",
+      description: "Stay in an always-on terminal session and keep asking continuously with inline query flags.",
+      command: "tref live",
+    },
+    {
+      icon: <ShieldCheck className="h-5 w-5" />,
+      title: "Trust-Aware Updates",
+      description: "Checksum verification by default with optional signature requirements and freshness/trust notices.",
       command: "tref update --strict-verify",
     },
     {
-      icon: <Shield className="h-6 w-6" />,
-      title: "Freshness & Trust Signals",
-      description: "Status and notices expose freshness SLA and verification state explicitly.",
-      command: "tref status",
-    },
-    {
-      icon: <Zap className="h-6 w-6" />,
+      icon: <Zap className="h-5 w-5" />,
       title: "Language-Aware Examples",
-      description: "Prefer examples by stack/language without changing query intent.",
-      command: "tref --lang bash \"git@2.44 create branch\"",
+      description: "Prefer examples by language for mixed stacks without changing query intent.",
+      command: 'tref --lang bash "git@2.44 create branch"',
     },
     {
-      icon: <Server className="h-6 w-6" />,
-      title: "Regression Gates",
-      description: "Golden-query eval command for CI and release confidence.",
+      icon: <CheckCircle2 className="h-5 w-5" />,
+      title: "Quality Gates",
+      description: "Run golden-query regression checks locally or in CI before shipping snapshot updates.",
       command: "tref eval --index-root /tmp/tref-indexes --min-pass-rate 1.0",
     },
   ];
 
   const examples = [
     {
-      title: "Version Mapping + Structured Response",
-      command: "tref \"pandas@2.2.0 groupby\"",
-      output: `
-pandas@2.2 • DataFrame.groupby
+      title: "Version mapping + structured guidance",
+      command: 'tref "pandas@2.2.0 groupby"',
+      output: `pandas@2.2 • DataFrame.groupby
 Version Notice: Requested '2.2.0', using '2.2' (compatible-normalized).
+
 Description
 Signature
 Parameters
 Gotchas & Version Notes
 Examples
-    `,
+References`,
     },
     {
-      title: "Preferred Example Language",
-      command: "tref --lang bash \"git@2.44 create a new branch and switch\"",
-      output: `
-Examples
+      title: "Inline flags in live mode",
+      command: 'git@2.44 create a new branch and switch --lang bash --top-k 8',
+      output: `Examples
 Example 1
 Language  bash
 \`\`\`
 git switch -c feature/login-flow
 \`\`\`
-    `,
+
+Other Good Options
+• git checkout -b <name>`,
     },
     {
-      title: "Trust/Freshness Check",
+      title: "Trust and freshness status",
       command: "tref status",
-      output: `
-{
+      output: `{
   "freshness": {
     "fresh": false,
     "trusted": false,
     "verified": false,
-    "verified_signature": false
+    "verified_signature": false,
+    "sla_met": false
   }
-}
-    `,
+}`,
     },
     {
-      title: "Quality Gate",
+      title: "Regression quality gate",
       command: "tref eval --index-root /tmp/tref-indexes --min-pass-rate 1.0",
-      output: `
-{
+      output: `{
   "total": 7,
   "passed": 7,
   "failed": 0,
-  "pass_rate": 1.0
-}
-    `,
+  "pass_rate": 1.0,
+  "min_pass_rate": 1.0
+}`,
     },
   ];
 
-  const benefits = [
-    {
-      icon: <Server className="h-6 w-6" />,
-      title: "Fast & Local",
-      description:
-        "Runs locally with fast embeddings + FAISS. Offline after index sync.",
-    },
-    {
-      icon: <Shield className="h-6 w-6" />,
-      title: "Private & Secure",
-      description:
-        "Local-only retrieval plus explicit trust controls for updates.",
-    },
-    {
-      icon: <Zap className="h-6 w-6" />,
-      title: "Production Ready",
-      description:
-        "Intent-aware ranking, structured alternatives, and CI regression gates.",
-    },
+  const pillars = [
+    "Offline after first successful index sync",
+    "Strict schema for KB authoring (LLM-friendly)",
+    "Remote endpoints configurable by user",
+    "Cross-platform defaults via config file",
   ];
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden w-full px-0 py-20 md:py-32 text-center flex flex-col items-center justify-center min-h-[100vh]">
-        {/* Animated background gradient blob */}
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[120vw] h-[500px] bg-gradient-to-tr from-[#8B5CF6]/60 via-[#0EA5E9]/40 to-[#8B5CF6]/30 blur-3xl opacity-70 animate-pulse z-0" />
-        {/* Floating shapes */}
-        <div className="absolute top-10 left-10 w-24 h-24 bg-[#8B5CF6]/30 rounded-full blur-2xl animate-float-slow z-0" />
-        <div className="absolute bottom-10 right-10 w-32 h-32 bg-[#0EA5E9]/20 rounded-full blur-2xl animate-float-fast z-0" />
-        <div className="relative z-10 flex flex-col items-center w-full">
-          <div className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] p-6 rounded-2xl w-28 h-28 flex items-center justify-center shadow-2xl border-4 border-white/20 mb-6 animate-bounce-slow">
-            <Terminal className="h-16 w-16 text-white drop-shadow-lg" />
-          </div>
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] drop-shadow-xl tracking-tight">
-            tref
-          </h1>
-          <p className="text-2xl md:text-3xl text-[#8B5CF6] font-mono font-semibold mb-2 animate-fade-in">
-            Offline-first versioned developer reference.
-          </p>
-          <p className="text-lg md:text-xl text-slate-700 mb-8 max-w-xl mx-auto animate-fade-in delay-200">
-            Query `library@version` in plain English and get grounded answers with examples, cautions, and references.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12 animate-fade-in delay-300">
-            <Button
-              asChild
-              size="lg"
-              className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] text-white border-none hover:opacity-90 shadow-lg shadow-[#8B5CF6]/20"
-            >
-              <a
-                href="https://github.com/pavandhadge/tref"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Github className="mr-2 h-5 w-5" /> View on GitHub
-              </a>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              className="bg-gradient-to-r from-[#0EA5E9] to-[#8B5CF6] text-white border-none hover:opacity-90 shadow-lg shadow-[#0EA5E9]/20"
-            >
-              <a
-                href="https://github.com/pavandhadge/tref/releases"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Download className="mr-2 h-5 w-5" /> Download
-              </a>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="border-[#8B5CF6] text-[#8B5CF6] hover:bg-[#8B5CF6]/10 shadow"
-            >
-              <Link to="/docs">
-                📖 Read Documentation
-              </Link>
-            </Button>
-          </div>
-          <div className="flex justify-center animate-bounce mt-2">
-            <ArrowDown className="h-10 w-10 text-[#8B5CF6]" />
-          </div>
-        </div>
-      </section>
+      <main>
+        <section className="relative overflow-hidden border-b border-slate-200">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_0%,rgba(14,165,233,0.18),transparent_36%),radial-gradient(circle_at_80%_10%,rgba(20,184,166,0.16),transparent_40%)]" />
+          <div className="relative mx-auto max-w-6xl px-4 pb-20 pt-16 md:pb-24 md:pt-24">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white/80 px-3 py-1 text-xs font-medium text-slate-700">
+              <Terminal className="h-3.5 w-3.5" />
+              Production-ready CLI reference engine
+            </div>
 
-      {/* About Section - New section with more information */}
-      <section className="w-full py-20 bg-gradient-to-br from-[#FAFAFA] via-[#F8F8FF] to-[#e9e6fa] border-t border-[#8B5CF6]/10">
-        <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center text-slate-800 mb-10">
-            Why{" "}
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9]">
-              tref
-            </span>
-            ?
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {benefits.map((benefit, index) => (
-              <Card
-                key={index}
-                className="bg-white/90 p-6 shadow-xl hover:shadow-2xl transition-shadow border-0 backdrop-blur-md"
-              >
-                <div className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] p-3 rounded-lg w-14 h-14 flex items-center justify-center mb-4 text-white shadow-md">
-                  {benefit.icon}
+            <h1 className="mt-6 max-w-4xl text-balance text-4xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-6xl">
+              tref makes versioned developer docs queryable like a real tool, not a notes file.
+            </h1>
+
+            <p className="mt-6 max-w-2xl text-pretty text-lg leading-8 text-slate-600">
+              Ask natural language questions with <span className="font-mono">library@version</span>, get grounded responses, and keep everything local-first with trust-aware updates.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button asChild size="lg" className="rounded-xl bg-slate-900 px-6 text-white hover:bg-slate-800">
+                <a href="https://github.com/pavandhadge/tref" target="_blank" rel="noopener noreferrer">
+                  <Github className="mr-2 h-4 w-4" />
+                  View Repository
+                </a>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="rounded-xl border-slate-300 px-6 text-slate-800">
+                <a href="https://github.com/pavandhadge/tref/releases" target="_blank" rel="noopener noreferrer">
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Release
+                </a>
+              </Button>
+              <Button asChild size="lg" variant="ghost" className="rounded-xl text-slate-700 hover:bg-white/70">
+                <Link to="/docs">
+                  Read Docs <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+
+            <div className="mt-10 grid gap-3 sm:grid-cols-2">
+              {pillars.map((item) => (
+                <div key={item} className="rounded-xl border border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-700 backdrop-blur">
+                  {item}
                 </div>
-                <h3 className="text-xl font-semibold mb-2 text-slate-800">
-                  {benefit.title}
-                </h3>
-                <p className="text-slate-600 text-base leading-relaxed">
-                  {benefit.description}
-                </p>
-              </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="features" className="mx-auto w-full max-w-6xl px-4 py-16 md:py-20">
+          <div className="mb-8">
+            <p className="font-mono text-sm font-medium text-sky-700">Capabilities</p>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">Everything needed for reliable local retrieval</h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {features.map((feature) => (
+              <FeatureCard key={feature.title} {...feature} />
             ))}
           </div>
-          <div className="mt-12 text-center">
-            <p className="text-lg md:text-xl text-slate-700 max-w-2xl mx-auto mb-4 font-mono font-semibold">
-              Fast. Local. Private. Always at your fingertips.
-            </p>
-            <p className="text-slate-500 max-w-xl mx-auto text-base">
-              tref keeps your knowledge searchable and ready—no internet, no distractions.
-            </p>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Features Section */}
-      <section id="features" className="w-full py-20 bg-gradient-to-br from-[#F8F8FF] via-[#e9e6fa] to-[#FAFAFA] border-t border-[#8B5CF6]/10">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="mb-8 text-start">
-            <h2 className="text-2xl md:text-3xl font-mono font-bold inline-block mb-2">
-              <span className="text-[#9b87f5]">$</span> tref{" "}
-              <span className="text-[#1EAEDB]">--features</span>
-            </h2>
-            <p className="text-slate-600 text-base max-w-2xl  mt-2 text-start">
-              Current CLI capabilities, trust controls, and quality gates for reliable usage in local and CI workflows.
+        <section id="examples" className="border-y border-slate-200 bg-slate-50/70">
+          <div className="mx-auto w-full max-w-6xl px-4 py-16 md:py-20">
+            <div className="mb-8">
+              <p className="font-mono text-sm font-medium text-teal-700">Examples</p>
+              <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">Terminal flows you can use immediately</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {examples.map((example) => (
+                <TerminalDemo key={example.title} title={example.title} command={example.command} output={example.output} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-6xl px-4 py-16 md:py-20">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm md:p-10">
+            <h3 className="text-2xl font-bold text-slate-900 md:text-3xl">Ready to use tref in your workflow?</h3>
+            <p className="mt-3 max-w-2xl text-slate-600">
+              Install once, configure defaults once, and run reproducible retrieval in local dev, Docker, and CI.
             </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Button asChild className="rounded-xl bg-slate-900 text-white hover:bg-slate-800">
+                <a href="https://github.com/pavandhadge/tref/releases" target="_blank" rel="noopener noreferrer">Get Latest Release</a>
+              </Button>
+              <Button asChild variant="outline" className="rounded-xl border-slate-300 text-slate-800">
+                <Link to="/docs">Open Documentation</Link>
+              </Button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
-              <FeatureCard key={index} {...feature} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Examples Section */}
-      <section id="examples" className="w-full py-20 bg-gradient-to-br from-[#e9e6fa] via-[#F8F8FF] to-[#FAFAFA] border-t border-[#8B5CF6]/10">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="mb-10">
-            <h2 className="text-2xl md:text-3xl font-mono font-bold inline-block">
-              <span className="text-[#9b87f5]">$</span> tref{" "}
-              <span className="text-[#1EAEDB]">--examples</span>
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {examples.map((example, index) => (
-              <TerminalDemo
-                key={index}
-                title={example.title}
-                command={example.command}
-                output={example.output}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Download Section */}
-      <section id="download" className="w-full py-20 bg-gradient-to-br from-[#8B5CF6]/10 via-[#0EA5E9]/10 to-[#FAFAFA] border-t border-[#8B5CF6]/10">
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9]">Download tref</h2>
-          <p className="text-lg text-slate-700 mb-8">Get the latest standalone executable or Python package for your platform. No installation hassle—just download and start using tref!</p>
-          <a
-            href="https://github.com/pavandhadge/tref/releases"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block"
-          >
-            <Button size="lg" className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] text-white text-xl px-10 py-6 shadow-lg hover:opacity-90">
-              <Download className="mr-3 h-7 w-7" /> Download Latest Release
-            </Button>
-          </a>
-          <p className="text-slate-500 mt-6">See <a href="https://github.com/pavandhadge/tref/releases" target="_blank" rel="noopener noreferrer" className="underline text-[#8B5CF6]">all releases on GitHub</a>.</p>
-        </div>
-      </section>
+        </section>
+      </main>
 
       <Footer />
     </div>

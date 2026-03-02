@@ -1,141 +1,81 @@
-
-import { useState, useEffect } from "react";
-import { Terminal, Menu, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Terminal, Menu, X, Github } from "lucide-react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 
-const scrollToSection = (id: string) => {
-  const el = document.getElementById(id);
-  if (el) {
-    el.scrollIntoView({ behavior: "smooth" });
-  }
-};
-
 const Header = () => {
-  const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
 
-  useEffect(() => {
-    setIsMenuOpen(false); // close menu on route change
-  }, [location]);
+  const navItems = [
+    { label: "Features", href: "/#features" },
+    { label: "Examples", href: "/#examples" },
+    { label: "Docs", href: "/docs" },
+  ];
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY;
-      setIsScrolled(scrollTop > 50);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
-
-  const handleNav = (id: string) => {
-    scrollToSection(id);
-    setIsMenuOpen(false);
-  };
-
-  // Dynamic text color for contrast
-  const navText = isScrolled ? "text-white" : "text-[#8B5CF6]";
-  const navTextHover = isScrolled ? "hover:text-[#8B5CF6]" : "hover:text-[#0EA5E9]";
+  const isDocs = location.pathname === "/docs";
 
   return (
-    <header className={cn(
-      "sticky top-0 z-20 transition-all duration-300 backdrop-blur-xl",
-      isScrolled ? "bg-slate-900/90 shadow-lg" : "bg-transparent"
-    )}>
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-        <RouterLink to="/" className="flex items-center group">
-          <Terminal className={cn("h-7 w-7 group-hover:scale-110 transition-transform mr-2", navText)} />
-          <span className={cn("font-mono font-bold text-2xl tracking-tight", navText)}>tref</span>
+    <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4">
+        <RouterLink to="/" className="flex items-center gap-2">
+          <div className="grid h-8 w-8 place-items-center rounded-lg bg-slate-900 text-white">
+            <Terminal className="h-4 w-4" />
+          </div>
+          <span className="font-mono text-xl font-bold tracking-tight text-slate-900">tref</span>
         </RouterLink>
-        {/* Mobile menu button */}
-        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className={cn("lg:hidden transition-colors", navText, navTextHover)}>
-          {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
-        </button>
-        {/* Desktop navigation */}
-        <nav className="hidden lg:block">
-          <ul className="flex space-x-8 text-base font-mono">
-            <li><button onClick={() => handleNav("features")} className={cn("transition-colors", navText, navTextHover)}>Features</button></li>
-            <li><button onClick={() => handleNav("examples")} className={cn("transition-colors", navText, navTextHover)}>Examples</button></li>
-            <li><RouterLink to="/docs" className={cn("transition-colors", navText, navTextHover)}>Docs</RouterLink></li>
-            <li>
-              <a 
-                href="https://github.com/pavandhadge/tref" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className={cn("transition-colors", navText, navTextHover)}
-              >
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a
-                href="https://github.com/pavandhadge/tref/releases"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn("transition-colors", navText, navTextHover)}
-              >
-                Download
-              </a>
-            </li>
-          </ul>
+
+        <nav className="hidden items-center gap-7 lg:flex">
+          {navItems.map((item) => (
+            <a key={item.label} href={item.href} className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900">
+              {item.label}
+            </a>
+          ))}
+          <a
+            href="https://github.com/pavandhadge/tref"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:border-slate-900 hover:text-slate-900"
+          >
+            <Github className="h-4 w-4" />
+            GitHub
+          </a>
         </nav>
+
+        <button
+          className="grid h-9 w-9 place-items-center rounded-md border border-slate-300 text-slate-700 lg:hidden"
+          onClick={() => setIsMenuOpen((v) => !v)}
+          aria-label="Toggle menu"
+        >
+          {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
       </div>
-      {/* Mobile navigation */}
+
       {isMenuOpen && (
-        <div className="lg:hidden bg-slate-900 border-t border-slate-800">
-          <nav className="px-4 py-4">
-            <ul className="flex flex-col space-y-3 font-mono">
-              <li>
-                <button 
-                  onClick={() => handleNav("features")}
-                  className="block px-2 py-2 w-full text-left hover:bg-slate-800 rounded hover:text-[#8B5CF6] transition-colors"
-                >
-                  Features
-                </button>
-              </li>
-              <li>
-                <button 
-                  onClick={() => handleNav("examples")}
-                  className="block px-2 py-2 w-full text-left hover:bg-slate-800 rounded hover:text-[#8B5CF6] transition-colors"
-                >
-                  Examples
-                </button>
-              </li>
-              <li>
-                <RouterLink 
-                  to="/docs"
-                  className="block px-2 py-2 hover:bg-slate-800 rounded hover:text-[#8B5CF6] transition-colors"
-                >
-                  Docs
-                </RouterLink>
-              </li>
-              <li>
-                <a 
-                  href="https://github.com/pavandhadge/tref" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="block px-2 py-2 hover:bg-slate-800 rounded hover:text-[#8B5CF6] transition-colors"
-                >
-                  GitHub
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://github.com/pavandhadge/tref/releases"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block px-2 py-2 hover:bg-slate-800 rounded hover:text-[#8B5CF6] transition-colors"
-                >
-                  Download
-                </a>
-              </li>
-            </ul>
+        <div className="border-t border-slate-200 bg-white lg:hidden">
+          <nav className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-3">
+            {navItems.map((item) => (
+              <a
+                key={item.label}
+                href={item.href}
+                className="rounded-md px-2 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {item.label}
+              </a>
+            ))}
+            <a
+              href="https://github.com/pavandhadge/tref"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-md px-2 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              GitHub Repository
+            </a>
           </nav>
         </div>
       )}
+
+      {isDocs && <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-sky-300 to-transparent" />}
     </header>
   );
 };

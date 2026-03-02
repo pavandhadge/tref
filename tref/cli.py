@@ -20,10 +20,17 @@ from tref.api import ask
 from tref.config import (
     CUSTOM_INDEX_ROOT,
     DEFAULT_FRESHNESS_POLICY,
+    DEFAULT_LLM_MODEL,
+    DEFAULT_TOP_K,
+    DEFAULT_EXAMPLE_LANG,
     get_remote_settings,
+    get_user_defaults,
     load_remote_config,
+    load_user_config,
     reset_remote_config,
+    reset_user_config,
     save_remote_config,
+    save_user_config,
 )
 from tref.errors import TrefError
 from tref.indexer import build_indexes
@@ -619,10 +626,10 @@ def query_cmd(
     library: Optional[str] = typer.Option(None, "--library", "-l"),
     version: Optional[str] = typer.Option(None, "--version", "-v"),
     json_output: bool = typer.Option(False, "--json", help="Return JSON output for agents."),
-    top_k: int = typer.Option(5, "--top-k", min=1, max=20),
+    top_k: int = typer.Option(DEFAULT_TOP_K, "--top-k", min=1, max=20),
     llm: bool = typer.Option(False, "--llm", help="Generate final answer via Ollama."),
     chat: bool = typer.Option(False, "--chat", help="Interactive multi-query mode."),
-    model: str = typer.Option("llama3.1:8b-instruct", "--model"),
+    model: str = typer.Option(DEFAULT_LLM_MODEL, "--model"),
     strict_fresh: bool = typer.Option(False, "--strict-fresh", help="Fail when freshness cannot be ensured."),
     freshness_policy: str = typer.Option(
         DEFAULT_FRESHNESS_POLICY,
@@ -632,7 +639,7 @@ def query_cmd(
     no_autodetect: bool = typer.Option(False, "--no-autodetect", help="Disable query-based library detection."),
     verbose: bool = typer.Option(False, "--verbose", help="Show full retrieved chunks."),
     full_doc: bool = typer.Option(False, "--full-doc", help="Dump the full document for the best match."),
-    lang: Optional[str] = typer.Option(None, "--lang", help="Prefer examples in this language (python|bash|jsx|... )."),
+    lang: Optional[str] = typer.Option(DEFAULT_EXAMPLE_LANG, "--lang", help="Prefer examples in this language (python|bash|jsx|... )."),
     index_root: Optional[Path] = typer.Option(None, "--index-root", help="Override index root path."),
 ) -> None:
     if chat:
@@ -675,8 +682,8 @@ def live_cmd(
     library: Optional[str] = typer.Option(None, "--library", "-l"),
     version: Optional[str] = typer.Option(None, "--version", "-v"),
     llm: bool = typer.Option(False, "--llm", help="Generate final answer via Ollama."),
-    model: str = typer.Option("llama3.1:8b-instruct", "--model"),
-    top_k: int = typer.Option(5, "--top-k", min=1, max=20),
+    model: str = typer.Option(DEFAULT_LLM_MODEL, "--model"),
+    top_k: int = typer.Option(DEFAULT_TOP_K, "--top-k", min=1, max=20),
     strict_fresh: bool = typer.Option(False, "--strict-fresh", help="Fail when freshness cannot be ensured."),
     freshness_policy: str = typer.Option(
         DEFAULT_FRESHNESS_POLICY,
@@ -685,7 +692,7 @@ def live_cmd(
     ),
     verbose: bool = typer.Option(False, "--verbose", help="Show full retrieved chunks."),
     full_doc: bool = typer.Option(False, "--full-doc", help="Dump the full document for the best match."),
-    lang: Optional[str] = typer.Option(None, "--lang", help="Prefer examples in this language."),
+    lang: Optional[str] = typer.Option(DEFAULT_EXAMPLE_LANG, "--lang", help="Prefer examples in this language."),
     index_root: Optional[Path] = typer.Option(None, "--index-root", help="Override index root path."),
 ) -> None:
     """Persistent interactive mode for continuous tref queries."""
@@ -784,6 +791,9 @@ def bench_cmd(
 remote_app = typer.Typer(help="Manage remote KB/release endpoints.")
 app.add_typer(remote_app, name="remote")
 
+config_app = typer.Typer(help="Manage user defaults in config file.")
+app.add_typer(config_app, name="config")
+
 
 @remote_app.command("show")
 def remote_show() -> None:
@@ -825,6 +835,84 @@ def remote_reset() -> None:
     console.print_json(json.dumps(get_remote_settings(), indent=2))
 
 
+@config_app.command("show")
+def config_show() -> None:
+    payload = {
+        "effective": get_user_defaults(),
+        "file_values": load_user_config(),
+    }
+    console.print_json(json.dumps(payload, indent=2))
+
+
+@config_app.command("set")
+def config_set(
+    freshness_policy: Optional[str] = typer.Option(None, "--freshness-policy"),
+    top_k: Optional[int] = typer.Option(None, "--top-k", min=1, max=20),
+    llm_model: Optional[str] = typer.Option(None, "--llm-model"),
+    example_language: Optional[str] = typer.Option(None, "--example-language"),
+    update_strict_verify: Optional[bool] = typer.Option(None, "--update-strict-verify/--no-update-strict-verify"),
+    require_signature: Optional[bool] = typer.Option(None, "--require-signature/--no-require-signature"),
+    max_index_age_days: Optional[int] = typer.Option(None, "--max-index-age-days", min=1),
+    ollama_url: Optional[str] = typer.Option(None, "--ollama-url"),
+    releases_api_url: Optional[str] = typer.Option(None, "--releases-api-url"),
+    kb_manifest_url: Optional[str] = typer.Option(None, "--kb-manifest-url"),
+    release_asset_name: Optional[str] = typer.Option(None, "--release-asset-name"),
+    release_checksum_asset_name: Optional[str] = typer.Option(None, "--release-checksum-asset-name"),
+    release_signature_asset_name: Optional[str] = typer.Option(None, "--release-signature-asset-name"),
+) -> None:
+    cfg = load_user_config()
+    updates: dict[str, object] = {}
+    if freshness_policy is not None:
+        fp = freshness_policy.strip().lower()
+        if fp not in {"strict", "warn", "offline-only"}:
+            raise typer.BadParameter("freshness_policy must be strict|warn|offline-only")
+        updates["freshness_policy"] = fp
+    if top_k is not None:
+        updates["top_k"] = int(top_k)
+    if llm_model is not None:
+        updates["llm_model"] = llm_model
+    if example_language is not None:
+        updates["example_language"] = example_language
+    if update_strict_verify is not None:
+        updates["update_strict_verify"] = bool(update_strict_verify)
+    if require_signature is not None:
+        updates["require_signature"] = bool(require_signature)
+    if max_index_age_days is not None:
+        updates["max_index_age_days"] = int(max_index_age_days)
+    if ollama_url is not None:
+        updates["ollama_url"] = ollama_url
+    if releases_api_url is not None:
+        updates["releases_api_url"] = releases_api_url
+    if kb_manifest_url is not None:
+        updates["kb_manifest_url"] = kb_manifest_url
+    if release_asset_name is not None:
+        updates["release_asset_name"] = release_asset_name
+    if release_checksum_asset_name is not None:
+        updates["release_checksum_asset_name"] = release_checksum_asset_name
+    if release_signature_asset_name is not None:
+        updates["release_signature_asset_name"] = release_signature_asset_name
+    if not updates:
+        raise typer.BadParameter("No values provided to set.")
+    cfg.update(updates)
+    try:
+        save_user_config(cfg)
+    except PermissionError as exc:
+        console.print(f"[red]CONFIG_WRITE_FAILED[/red]: {exc}")
+        raise typer.Exit(code=ExitCodes.ERROR)
+    console.print("[green]Config updated.[/green]")
+    console.print_json(json.dumps(cfg, indent=2))
+
+
+@config_app.command("reset")
+def config_reset() -> None:
+    try:
+        reset_user_config()
+    except PermissionError as exc:
+        console.print(f"[red]CONFIG_WRITE_FAILED[/red]: {exc}")
+        raise typer.Exit(code=ExitCodes.ERROR)
+    console.print("[green]Config file reset.[/green]")
+
+
 @app.command("build-index")
 def build_index_cmd(
     kb_path: Path = typer.Argument(..., exists=True, file_okay=False, dir_okay=True),
@@ -847,6 +935,7 @@ def run() -> None:
         "doctor",
         "bench",
         "remote",
+        "config",
         "build-index",
         "eval",
         "--help",
