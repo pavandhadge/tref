@@ -2,31 +2,27 @@ import { Github } from "lucide-react";
 
 const Footer = () => {
   return (
-    <footer className="py-12 bg-[hsl(var(--terminal-bg))] text-[hsl(var(--terminal-text))] border-t border-[#9b87f5]/20">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex flex-col md:flex-row justify-between items-center">
-          <div className="mb-6 md:mb-0 text-center md:text-left">
-            <div className="text-2xl font-mono font-bold text-[#9b87f5] mb-2">
-              tref
-            </div>
-            <p className="text-gray-300">Terminal Reference Tool</p>
-          </div>
-
-          <div className="flex flex-col items-center md:items-end">
-            <p className="text-gray-300 mb-2">Built by Pavan Dhadge</p>
-            <a
-              href="https://github.com/pavandhadge"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center text-[#9b87f5] hover:underline"
-            >
-              <Github className="h-4 w-4 mr-1" /> @pavandhadge
-            </a>
-          </div>
+    <footer className="border-t border-slate-200 bg-white">
+      <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 md:grid-cols-2 md:items-end">
+        <div>
+          <div className="font-mono text-2xl font-bold text-slate-900">tref</div>
+          <p className="mt-2 max-w-md text-sm text-slate-600">
+            Offline-first versioned developer reference. Query docs snapshots with trust-aware updates and structured output.
+          </p>
         </div>
 
-        <div className="mt-8 pt-8 border-t border-[#9b87f5]/20 text-center text-sm text-gray-400">
-          <p>tref is open source and available under the AGPL3 license.</p>
+        <div className="md:text-right">
+          <p className="text-sm text-slate-600">Built by Pavan Dhadge</p>
+          <a
+            href="https://github.com/pavandhadge/tref"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-slate-900 hover:text-sky-700"
+          >
+            <Github className="h-4 w-4" />
+            github.com/pavandhadge/tref
+          </a>
+          <p className="mt-4 text-xs text-slate-500">MIT License</p>
         </div>
       </div>
     </footer>

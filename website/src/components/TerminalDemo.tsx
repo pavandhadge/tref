@@ -1,8 +1,6 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 interface TerminalDemoProps {
   title: string;
@@ -16,39 +14,37 @@ const TerminalDemo = ({ title, command, output }: TerminalDemoProps) => {
   const handleCopy = () => {
     navigator.clipboard.writeText(command);
     setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
+    setTimeout(() => setIsCopied(false), 1500);
   };
 
   return (
-    <Card className="bg-[hsl(var(--terminal-bg))] border-[#9b87f5]/30 overflow-hidden shadow-md">
-      <div className="bg-[hsl(var(--terminal-header))] px-4 py-2 flex justify-between items-center border-b border-[#9b87f5]/20">
-        <span className="font-semibold text-sm text-gray-300">{title}</span>
-        <div className="flex space-x-1">
-          <div className="h-2.5 w-2.5 rounded-full bg-red-500"></div>
-          <div className="h-2.5 w-2.5 rounded-full bg-yellow-500"></div>
-          <div className="h-2.5 w-2.5 rounded-full bg-green-500"></div>
+    <Card className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-lg">
+      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-2">
+        <span className="text-sm font-medium text-slate-200">{title}</span>
+        <div className="flex gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-slate-500" />
+          <span className="h-2.5 w-2.5 rounded-full bg-slate-600" />
+          <span className="h-2.5 w-2.5 rounded-full bg-slate-700" />
         </div>
       </div>
-      
+
       <div className="p-4">
-        <div className="flex items-center gap-2 mb-3 font-mono">
-          <span className="text-[#9b87f5]">$</span>
-          <div className="flex-1 bg-[hsl(var(--terminal-header))] p-2 rounded flex items-center justify-between">
-            <code className="text-sm text-gray-300">{command}</code>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-6 text-xs hover:bg-[#9b87f5]/10 hover:text-[#9b87f5] text-gray-300"
-              onClick={handleCopy}
-            >
-              {isCopied ? "Copied!" : "Copy"}
-            </Button>
-          </div>
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 p-2 font-mono text-xs text-slate-200">
+          <span className="text-emerald-300">$</span>
+          <code className="flex-1 overflow-x-auto whitespace-nowrap">{command}</code>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
+            onClick={handleCopy}
+          >
+            {isCopied ? "Copied" : "Copy"}
+          </Button>
         </div>
-        
-        <div className="bg-[hsl(var(--terminal-header))] p-4 rounded font-mono text-sm overflow-x-auto whitespace-pre-wrap">
-          <pre className="text-gray-300">{output}</pre>
-        </div>
+
+        <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-6 text-slate-300">
+          {output}
+        </pre>
       </div>
     </Card>
   );
