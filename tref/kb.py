@@ -20,13 +20,30 @@ from tref.config import (
 
 LIBVER_RE = re.compile(r"^(?P<library>[a-zA-Z0-9_.-]+)@(?P<version>[a-zA-Z0-9_.-]+)$")
 WORD_RE = re.compile(r"[a-zA-Z0-9_.-]+")
+_MANIFEST_MEM_CACHE: dict[str, Any] | None = None
 
 LIBRARY_HINTS: dict[str, tuple[str, ...]] = {
     "pandas": ("dataframe", "series", "groupby", "merge", "pivot", "read_csv", "pd"),
     "polars": ("lazyframe", "group_by", "pl", "scan_parquet", "collect"),
     "git": ("commit", "rebase", "cherry-pick", "checkout", "stash", "branch", "merge"),
     "docker": ("container", "image", "dockerfile", "compose", "volume", "port", "run"),
+    "algorithms": ("binary search", "bubble sort", "sorting", "algorithm", "time complexity", "big o"),
+    "react": ("react", "component", "hooks", "usestate", "state", "useeffect", "jsx"),
 }
+
+
+def _version_key(version: str) -> tuple:
+    # Keep "latest" highest precedence for explicit local aliases.
+    if version == "latest":
+        return (1, 0)
+    parts = re.split(r"[._-]", version)
+    norm = []
+    for part in parts:
+        if part.isdigit():
+            norm.append((0, int(part)))
+        elif part:
+            norm.append((1, part))
+    return (0, tuple(norm))
 
 
 def parse_library_version(token: str) -> tuple[str | None, str | None]:
@@ -47,9 +64,13 @@ def split_inline_library_version(query: str) -> tuple[str | None, str | None, st
 
 
 def load_manifest(refresh: bool = False) -> dict[str, Any]:
+    global _MANIFEST_MEM_CACHE
     ensure_dirs()
+    if _MANIFEST_MEM_CACHE is not None and not refresh:
+        return _MANIFEST_MEM_CACHE
     if MANIFEST_CACHE.exists() and not refresh:
-        return json.loads(MANIFEST_CACHE.read_text(encoding="utf-8"))
+        _MANIFEST_MEM_CACHE = json.loads(MANIFEST_CACHE.read_text(encoding="utf-8"))
+        return _MANIFEST_MEM_CACHE
     last_error: Exception | None = None
     url = get_kb_manifest_url()
     for attempt in range(HTTP_MAX_RETRIES):
@@ -65,13 +86,15 @@ def load_manifest(refresh: bool = False) -> dict[str, Any]:
             tmp = MANIFEST_CACHE.with_suffix(".json.tmp")
             tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
             tmp.replace(MANIFEST_CACHE)
+            _MANIFEST_MEM_CACHE = data
             return data
         except Exception as exc:
             last_error = exc
             if attempt < (HTTP_MAX_RETRIES - 1):
                 time.sleep(HTTP_RETRY_BACKOFF_SECONDS * (2**attempt))
     if MANIFEST_CACHE.exists():
-        return json.loads(MANIFEST_CACHE.read_text(encoding="utf-8"))
+        _MANIFEST_MEM_CACHE = json.loads(MANIFEST_CACHE.read_text(encoding="utf-8"))
+        return _MANIFEST_MEM_CACHE
     if last_error:
         return {"libraries": {}, "error": str(last_error)}
     return {"libraries": {}}
@@ -136,16 +159,24 @@ def detect_library_from_query(
     return top["library"], candidates[:3]
 
 
-def resolve_version(library: str, requested: str | None, index_root: Path = INDEX_ROOT) -> str:
+def resolve_version(
+    library: str,
+    requested: str | None,
+    index_root: Path = INDEX_ROOT,
+    allow_remote: bool = True,
+) -> str:
     versions = local_versions(library, index_root=index_root)
-    manifest = load_manifest(refresh=False)
-    manifest_info = manifest.get("libraries", {}).get(library, {})
-    manifest_versions = manifest_info.get("versions", [])
+    manifest_info: dict[str, Any] = {}
+    manifest_versions: list[str] = []
+    if allow_remote:
+        manifest = load_manifest(refresh=False)
+        manifest_info = manifest.get("libraries", {}).get(library, {})
+        manifest_versions = manifest_info.get("versions", [])
 
     if requested:
         if requested in versions or requested in manifest_versions:
             return requested
-        all_versions = sorted(set(versions + manifest_versions))
+        all_versions = sorted(set(versions + manifest_versions), key=_version_key)
         for ver in all_versions:
             if ver.startswith(requested):
                 return ver
@@ -154,7 +185,7 @@ def resolve_version(library: str, requested: str | None, index_root: Path = INDE
     if versions:
         if "latest" in versions:
             return "latest"
-        return versions[-1]
+        return sorted(versions, key=_version_key)[-1]
 
     latest = manifest_info.get("latest")
     return latest if latest else "latest"

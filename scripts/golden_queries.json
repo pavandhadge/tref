@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "id": "git_branch_create_switch",
+      "query": "git@2.44 create a new branch and switch",
+      "library": "git",
+      "version": "2.44",
+      "expected_top_item": "git.branch",
+      "expected_alternatives_contains": ["git switch -c", "git checkout -b"]
+    },
+    {
+      "id": "git_rebase_safe",
+      "query": "git@2.44 rebase safely avoid mistakes",
+      "library": "git",
+      "version": "2.44",
+      "expected_top_item": "git.rebase"
+    },
+    {
+      "id": "pandas_groupby",
+      "query": "pandas@2.2 groupby multiple columns mean",
+      "library": "pandas",
+      "version": "2.2",
+      "expected_top_item": "DataFrame.groupby"
+    },
+    {
+      "id": "pandas_agg",
+      "query": "pandas@2.2 agg custom lambda quantile",
+      "library": "pandas",
+      "version": "2.2",
+      "expected_top_item": "DataFrame.agg"
+    },
+    {
+      "id": "docker_run",
+      "query": "docker@26.1 run with cpu and memory limits",
+      "library": "docker",
+      "version": "26.1",
+      "expected_top_item": "docker.run"
+    },
+    {
+      "id": "react_state",
+      "query": "react@18 how do i save state in a component",
+      "library": "react",
+      "version": "18",
+      "expected_top_item": "useState"
+    },
+    {
+      "id": "algo_binary_search",
+      "query": "algorithms@1.0 binary search complexity and example",
+      "library": "algorithms",
+      "version": "1.0",
+      "expected_top_item": "binary_search"
+    }
+  ]
+}

@@ -24,9 +24,21 @@ REQUIRED_FRONTMATTER_KEYS = {
     "signature",
     "keywords",
     "last_updated",
+    "schema_version",
+    "intent",
+    "source_url",
+    "source_title",
 }
 
-REQUIRED_HEADINGS = {"Signature", "Parameters", "Examples", "Gotchas / Version Notes"}
+SCHEMA_V2_REQUIRED_HEADINGS = {
+    "Signature",
+    "What It Does",
+    "Use When",
+    "Examples",
+    "Alternatives",
+    "Gotchas / Version Notes",
+    "References",
+}
 
 
 def _sha256_text(text: str) -> str:
@@ -55,6 +67,13 @@ def _split_sections(content: str) -> list[tuple[str, str]]:
     return sections
 
 
+def _normalized_item_heading(library: str, item: str) -> str:
+    prefix = f"{library}."
+    if item.startswith(prefix):
+        return item
+    return f"{library}.{item}"
+
+
 def _validate_frontmatter(meta: dict[str, Any], doc_path: Path) -> None:
     missing = REQUIRED_FRONTMATTER_KEYS.difference(meta.keys())
     if missing:
@@ -62,15 +81,27 @@ def _validate_frontmatter(meta: dict[str, Any], doc_path: Path) -> None:
 
     if not isinstance(meta.get("keywords"), list) or not all(isinstance(x, str) for x in meta["keywords"]):
         raise ValidationError("KB_FRONTMATTER_INVALID", f"Invalid keywords in {doc_path}; expected list[str]")
+    if not isinstance(meta.get("schema_version"), str) or str(meta["schema_version"]).strip() != "2.0":
+        raise ValidationError("KB_FRONTMATTER_INVALID", f"Invalid 'schema_version' in {doc_path}; expected '2.0'")
+    if not isinstance(meta.get("intent"), str) or not str(meta["intent"]).strip():
+        raise ValidationError("KB_FRONTMATTER_INVALID", f"Invalid 'intent' in {doc_path}; expected short string")
 
     for key in ["library", "version", "category", "item", "type", "signature", "last_updated"]:
         if not isinstance(meta.get(key), str) or not meta[key].strip():
             raise ValidationError("KB_FRONTMATTER_INVALID", f"Invalid '{key}' in {doc_path}")
+    if not isinstance(meta.get("source_url"), str) or not meta["source_url"].startswith(("http://", "https://")):
+        raise ValidationError("KB_FRONTMATTER_INVALID", f"Invalid 'source_url' in {doc_path}")
+    if not isinstance(meta.get("source_title"), str) or not meta["source_title"].strip():
+        raise ValidationError("KB_FRONTMATTER_INVALID", f"Invalid 'source_title' in {doc_path}")
+    if "aliases" in meta and (
+        not isinstance(meta["aliases"], list) or not all(isinstance(x, str) and x.strip() for x in meta["aliases"])
+    ):
+        raise ValidationError("KB_FRONTMATTER_INVALID", f"Invalid 'aliases' in {doc_path}; expected list[str]")
 
 
 def _validate_sections(sections: list[tuple[str, str]], doc_path: Path) -> None:
     seen = {title for title, _ in sections}
-    missing = REQUIRED_HEADINGS.difference(seen)
+    missing = SCHEMA_V2_REQUIRED_HEADINGS.difference(seen)
     if missing:
         raise ValidationError("KB_SECTION_MISSING", f"Missing required headings in {doc_path}: {sorted(missing)}")
 
@@ -88,8 +119,11 @@ def _parse_markdown(doc_path: Path, kb_root: Path) -> list[dict[str, Any]]:
     doc_hash = _sha256_text(post.content)
 
     for idx, (section_title, section_body) in enumerate(sections):
+        if section_title == "Overview" and section_body.strip().startswith("# "):
+            # Skip title-only preamble chunks; they reduce ranking quality.
+            continue
         chunk_text = (
-            f"# {meta['library']}.{meta['item']}\n"
+            f"# {_normalized_item_heading(str(meta['library']), str(meta['item']))}\n"
             f"## {section_title}\n"
             f"{section_body}"
         ).strip()
@@ -101,11 +135,16 @@ def _parse_markdown(doc_path: Path, kb_root: Path) -> list[dict[str, Any]]:
                 "library": str(meta["library"]),
                 "version": str(meta["version"]),
                 "item": str(meta["item"]),
+                "type": str(meta["type"]),
                 "signature": str(meta["signature"]),
                 "keywords": list(meta["keywords"]),
+                "aliases": list(meta.get("aliases", [])),
+                "intent": str(meta.get("intent", "")),
                 "section": section_title,
                 "source_last_updated": str(meta["last_updated"]),
                 "source_doc_hash": doc_hash,
+                "source_url": str(meta.get("source_url", "")).strip() or None,
+                "source_title": str(meta.get("source_title", "")).strip() or None,
             }
         )
     return chunks
@@ -116,11 +155,13 @@ def _build_faiss_index(
     output_dir: Path,
     model_name: str = EMBED_MODEL,
     kb_commit: str = "unknown",
+    embedder: TextEmbedding | None = None,
 ) -> dict[str, Any]:
     if not chunks:
         raise ValidationError("INDEX_EMPTY", "No chunks found to index")
 
-    embedder = TextEmbedding(model_name=model_name)
+    if embedder is None:
+        embedder = TextEmbedding(model_name=model_name)
     vectors = list(embedder.embed([chunk["text"] for chunk in chunks]))
     matrix = np.array(vectors, dtype="float32")
     faiss.normalize_L2(matrix)
@@ -175,6 +216,7 @@ def build_indexes(kb_root: Path, output_root: Path) -> dict[str, Any]:
     output_root = output_root.expanduser().resolve()
 
     kb_commit = _detect_kb_commit(kb_root)
+    embedder = TextEmbedding(model_name=EMBED_MODEL)
     summary: dict[str, Any] = {
         "libraries": {},
         "built_on": datetime.now(tz=UTC).isoformat(),
@@ -200,6 +242,7 @@ def build_indexes(kb_root: Path, output_root: Path) -> dict[str, Any]:
                 chunks,
                 output_root / library / version,
                 kb_commit=kb_commit,
+                embedder=embedder,
             )
             versions.append(version)
             if version == "latest":

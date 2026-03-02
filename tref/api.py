@@ -9,11 +9,145 @@ from tref.config import DEFAULT_FRESHNESS_POLICY, DEFAULT_TOP_K, INDEX_ROOT, OLL
 from tref.errors import DetectionError
 from tref.kb import detect_library_from_query, resolve_version, split_inline_library_version
 from tref.models import AskResponse
-from tref.retrieval import Retriever
+from tref.retrieval import Retriever, infer_query_intent
 from tref.updater import ensure_index_exists, freshness_status
 
+RISK_TERMS = {
+    "delete",
+    "drop",
+    "remove",
+    "reset",
+    "force",
+    "overwrite",
+    "rebase",
+    "danger",
+    "caution",
+    "warning",
+}
+EXAMPLE_TERMS = {"example", "examples", "sample", "demo", "how to", "show"}
+OVERVIEW_TERMS = {"overview", "full doc", "documentation", "all options", "all ways", "complete"}
 
-def _build_guidance(hits: list) -> dict[str, Any]:
+
+def _query_flags(query: str) -> dict[str, bool]:
+    q = query.lower()
+    return {
+        "risk_focus": any(term in q for term in RISK_TERMS),
+        "example_focus": any(term in q for term in EXAMPLE_TERMS),
+        "overview_focus": any(term in q for term in OVERVIEW_TERMS),
+    }
+
+
+def _strip_chunk_scaffold(text: str) -> str:
+    lines = text.splitlines()
+    # Chunks are stored as:
+    #   # <item>
+    #   ## <section>
+    #   <section content>
+    if len(lines) >= 3 and lines[0].startswith("# ") and lines[1].startswith("## "):
+        cleaned = "\n".join(lines[2:]).strip()
+        return cleaned if cleaned else text.strip()
+    return text.strip()
+
+
+def _extract_list_lines(text: str, limit: int = 8) -> list[str]:
+    lines: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("- "):
+            lines.append(line[2:].strip())
+        elif len(line) > 2 and line[0].isdigit() and line[1] == ".":
+            lines.append(line[2:].strip())
+        if len(lines) >= limit:
+            break
+    return lines
+
+
+def _extract_code_blocks(text: str) -> list[str]:
+    lines = text.splitlines()
+    blocks: list[str] = []
+    in_code = False
+    current: list[str] = []
+    for raw in lines:
+        line = raw.rstrip("\n")
+        if line.strip().startswith("```"):
+            if in_code:
+                body = "\n".join(current).strip()
+                if body:
+                    blocks.append(body)
+                current = []
+                in_code = False
+            else:
+                in_code = True
+            continue
+        if in_code:
+            current.append(line)
+    return blocks
+
+
+def _augment_guidance_from_sections(guidance: dict[str, Any], sections: list[dict[str, Any]]) -> dict[str, Any]:
+    if not guidance:
+        return guidance
+
+    def _append_unique(target: list[dict[str, Any]], candidate: dict[str, Any], key: str = "text") -> None:
+        val = str(candidate.get(key, "")).strip()
+        if not val:
+            return
+        for existing in target:
+            if str(existing.get(key, "")).strip() == val:
+                return
+        target.append(candidate)
+
+    examples = list(guidance.get("examples") or [])
+    cautions = list(guidance.get("cautions") or [])
+    alternatives = list(guidance.get("alternatives") or [])
+    citations = list(guidance.get("citations") or [])
+    seen_urls = {str(c.get("url", "")).strip() for c in citations if c.get("url")}
+
+    for sec in sections:
+        name = str(sec.get("section", "")).strip().lower()
+        text = str(sec.get("text", "")).strip()
+        doc_url = sec.get("doc_url")
+        if not text:
+            continue
+        if doc_url and doc_url not in seen_urls:
+            citations.append({"url": doc_url, "title": guidance.get("command_or_function") or "reference"})
+            seen_urls.add(str(doc_url))
+        if name == "examples":
+            blocks = _extract_code_blocks(text)
+            if blocks:
+                for code in blocks:
+                    _append_unique(
+                        examples,
+                        {"text": f"```python\n{code}\n```", "doc_url": doc_url, "confidence": guidance.get("confidence", 0)},
+                    )
+            else:
+                _append_unique(examples, {"text": text, "doc_url": doc_url, "confidence": guidance.get("confidence", 0)})
+        elif name in {"gotchas / version notes", "cautions", "warnings"}:
+            lines = _extract_list_lines(text, limit=20)
+            if lines:
+                for line in lines:
+                    _append_unique(cautions, {"text": line, "doc_url": doc_url, "confidence": guidance.get("confidence", 0)})
+            else:
+                _append_unique(cautions, {"text": text, "doc_url": doc_url, "confidence": guidance.get("confidence", 0)})
+        elif name == "alternatives":
+            lines = _extract_list_lines(text, limit=20)
+            for line in lines:
+                _append_unique(
+                    alternatives,
+                    {"name": line, "why": "Alternative approach from official docs context.", "doc_url": doc_url},
+                    key="name",
+                )
+
+    guidance["examples"] = examples
+    guidance["cautions"] = cautions
+    guidance["alternatives"] = alternatives
+    guidance["citations"] = citations
+    return guidance
+
+
+def _build_guidance(query: str, hits: list) -> dict[str, Any]:
     if not hits:
         return {
             "command_or_function": None,
@@ -23,32 +157,167 @@ def _build_guidance(hits: list) -> dict[str, Any]:
             "examples": [],
             "cautions": [],
             "citations": [],
+            "alternatives": [],
+            "show_top_matches": False,
+            "preview": None,
         }
 
-    top = hits[0]
+    # Choose a primary item so output remains focused on one function/command.
+    item_scores: dict[str, float] = {}
+    for hit in hits:
+        item_scores[hit.item] = item_scores.get(hit.item, 0.0) + float(hit.score)
+    primary_item = max(item_scores, key=item_scores.get)
+    primary_hits = [hit for hit in hits if hit.item == primary_item]
+    if not primary_hits:
+        primary_hits = [hits[0]]
+    primary_hits.sort(key=lambda h: h.score, reverse=True)
+    preferred_sections = [
+        "what it does",
+        "use when",
+        "signature",
+        "parameters",
+        "examples",
+        "gotchas / version notes",
+        "alternatives",
+    ]
+    top = primary_hits[0]
+    for pref in preferred_sections:
+        candidate = next((h for h in primary_hits if (h.section or "").lower() == pref), None)
+        if candidate is not None:
+            top = candidate
+            break
+
+    by_section: dict[str, Any] = {}
+    for hit in primary_hits:
+        sec = (hit.section or "").lower()
+        by_section.setdefault(sec, hit)
+
     examples = []
     cautions = []
     citations = []
+    alternatives = []
+    seen_refs: set[str] = set()
     returns = None
 
-    for hit in hits:
-        citations.append({"citation": hit.citation, "section": hit.section, "item": hit.item})
+    for hit in primary_hits:
+        ref = hit.source_url or None
+        if ref and ref not in seen_refs:
+            seen_refs.add(ref)
+            citations.append(
+                {
+                    "url": ref,
+                    "title": hit.source_title or hit.item,
+                    "section": hit.section,
+                    "item": hit.item,
+                }
+            )
         section = (hit.section or "").lower()
         if section == "examples":
-            examples.append({"text": hit.text, "citation": hit.citation, "confidence": hit.score})
+            cleaned = _strip_chunk_scaffold(hit.text)
+            code_blocks = _extract_code_blocks(cleaned)
+            if code_blocks:
+                for code in code_blocks:
+                    examples.append(
+                        {
+                            "text": f"```python\n{code}\n```",
+                            "doc_url": hit.source_url,
+                            "doc_title": hit.source_title or hit.item,
+                            "confidence": hit.score,
+                        }
+                    )
+            else:
+                examples.append(
+                    {
+                        "text": cleaned,
+                        "doc_url": hit.source_url,
+                        "doc_title": hit.source_title or hit.item,
+                        "confidence": hit.score,
+                    }
+                )
         if section in {"gotchas / version notes", "cautions", "warnings"}:
-            cautions.append({"text": hit.text, "citation": hit.citation, "confidence": hit.score})
+            cleaned = _strip_chunk_scaffold(hit.text)
+            caution_lines = _extract_list_lines(cleaned, limit=20)
+            if caution_lines:
+                for line in caution_lines:
+                    cautions.append(
+                        {
+                            "text": line,
+                            "doc_url": hit.source_url,
+                            "doc_title": hit.source_title or hit.item,
+                            "confidence": hit.score,
+                        }
+                    )
+            else:
+                cautions.append(
+                    {
+                        "text": cleaned,
+                        "doc_url": hit.source_url,
+                        "doc_title": hit.source_title or hit.item,
+                        "confidence": hit.score,
+                    }
+                )
         if section == "returns" and returns is None:
-            returns = {"text": hit.text, "citation": hit.citation}
+            returns = {
+                "text": _strip_chunk_scaffold(hit.text),
+                "doc_url": hit.source_url,
+                "doc_title": hit.source_title or hit.item,
+            }
+        if section == "alternatives":
+            for alt_line in _extract_list_lines(_strip_chunk_scaffold(hit.text), limit=12):
+                alternatives.append(
+                    {
+                        "name": alt_line,
+                        "why": "Alternative approach from official docs context.",
+                        "doc_url": hit.source_url,
+                    }
+                )
+
+    distinct_items = len({hit.item for hit in hits})
+    show_top_matches = distinct_items > 1 or float(top.score) < 0.62
+    if distinct_items > 1:
+        item_best: dict[str, Any] = {}
+        for hit in hits:
+            current = item_best.get(hit.item)
+            if current is None or float(hit.score) > float(current.score):
+                item_best[hit.item] = hit
+        for item_name, hit in sorted(item_best.items(), key=lambda pair: float(pair[1].score), reverse=True):
+            if item_name == primary_item:
+                continue
+            alternatives.append(
+                {
+                    "name": item_name,
+                    "why": f"Close match for this query (confidence {float(hit.score):.3f}).",
+                    "doc_url": hit.source_url,
+                    "confidence": float(hit.score),
+                }
+            )
+    # de-dup alternatives while preserving order
+    seen_alt: set[str] = set()
+    dedup_alts: list[dict[str, Any]] = []
+    for alt in alternatives:
+        key = alt.get("name", "").strip().lower()
+        if not key or key in seen_alt:
+            continue
+        seen_alt.add(key)
+        dedup_alts.append(alt)
 
     return {
-        "command_or_function": top.item,
+        "command_or_function": primary_item,
         "signature": top.signature,
         "returns": returns,
         "confidence": top.score,
-        "examples": examples[:3],
-        "cautions": cautions[:3],
-        "citations": citations[:8],
+        "examples": examples,
+        "cautions": cautions,
+        "citations": citations,
+        "alternatives": dedup_alts,
+        "show_top_matches": show_top_matches,
+        "preview": {
+            "item": top.item,
+            "section": top.section,
+            "text": _strip_chunk_scaffold(top.text),
+            "doc_url": top.source_url,
+            "confidence": top.score,
+        },
     }
 
 
@@ -81,6 +350,7 @@ def ask(
     strict_fresh: bool = False,
     freshness_policy: str = DEFAULT_FRESHNESS_POLICY,
     no_autodetect: bool = False,
+    include_full_doc: bool = False,
     index_root: Path | None = None,
 ) -> dict[str, Any] | AskResponse:
     clean_query = query.strip()
@@ -89,13 +359,17 @@ def ask(
     base_dir = index_root.expanduser().resolve() if index_root else INDEX_ROOT
 
     parsed_library, parsed_version, stripped_query = split_inline_library_version(clean_query)
+    requested_version = version
     autodetected = False
     warnings: list[str] = []
 
     if library is None and parsed_library:
         library = parsed_library
         version = version or parsed_version
+        requested_version = version
         clean_query = stripped_query
+        if not clean_query:
+            raise ValueError("query content is empty after parsing library@version prefix")
 
     if library is None and no_autodetect:
         raise DetectionError("DETECT_DISABLED", "Library must be provided when --no-autodetect is enabled")
@@ -126,7 +400,12 @@ def ask(
         ensure_fresh = True
         strict_fresh_effective = strict_fresh
 
-    resolved_version = resolve_version(library, version, index_root=base_dir)
+    resolved_version = resolve_version(
+        library,
+        version,
+        index_root=base_dir,
+        allow_remote=(policy != "offline-only"),
+    )
     index_dir = ensure_index_exists(
         library,
         resolved_version,
@@ -135,14 +414,19 @@ def ask(
         strict_fresh=strict_fresh_effective,
     )
 
+    effective_version = index_dir.name
     retriever = Retriever.get(index_dir=index_dir)
-    hits = retriever.search(clean_query, top_k=top_k)
+    query_intent = infer_query_intent(clean_query)
+    hits = retriever.search(clean_query, top_k=top_k, intent=query_intent)
     freshness = freshness_status()
 
     if not freshness.get("fresh", False):
         warnings.append("Index freshness check failed or is stale. Run `tref update`.")
     if freshness.get("verified") is False:
         warnings.append("Index verification is missing/failed for current local snapshot.")
+    version_mismatch = bool(requested_version) and (effective_version != requested_version)
+    if version_mismatch:
+        warnings.append(f"Requested version '{requested_version}' not found; using '{effective_version}'.")
 
     provenance = {
         "index_dir": str(index_dir),
@@ -151,18 +435,35 @@ def ask(
         "build_hash": retriever.index_meta.get("build_hash"),
         "builder_version": retriever.index_meta.get("builder_version"),
         "freshness_policy": policy,
+        "query_intent": query_intent,
     }
+
+    guidance = _build_guidance(clean_query, hits)
+    if hits:
+        top_item = guidance.get("command_or_function") or hits[0].item
+        sections = retriever.item_document(top_item)
+        guidance = _augment_guidance_from_sections(guidance, sections)
+    full_document = None
+    query_flags = _query_flags(clean_query)
+    if hits and (include_full_doc or query_flags["overview_focus"]):
+        full_document = {
+            "item": top_item,
+            "sections": retriever.item_document(top_item),
+        }
 
     response = AskResponse(
         library=library,
-        version=resolved_version,
+        version=effective_version,
+        version_requested=requested_version,
+        version_mismatch=version_mismatch,
         query=clean_query,
         results=hits,
         autodetected_library=autodetected,
         freshness=freshness,
         provenance=provenance,
-        guidance=_build_guidance(hits),
+        guidance=guidance,
         warnings=warnings,
+        full_document=full_document,
     )
 
     if llm:
