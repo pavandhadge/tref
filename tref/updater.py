@@ -21,6 +21,7 @@ from tref.config import (
     INDEX_ROOT,
     MAX_DOWNLOAD_BYTES,
     MAX_INDEX_AGE_DAYS,
+    REQUIRE_SIGNATURE,
     UPDATE_STATE_CACHE,
     UPDATE_STRICT_VERIFY,
     ensure_dirs,
@@ -87,7 +88,17 @@ def freshness_status(max_age_days: int = MAX_INDEX_AGE_DAYS) -> dict:
     state = _read_update_state()
     fetched_at = state.get("fetched_at")
     if not fetched_at:
-        return {"fresh": False, "reason": "never_updated", "verified": False, "max_age_days": max_age_days}
+        return {
+            "fresh": False,
+            "reason": "never_updated",
+            "verified": False,
+            "verified_signature": False,
+            "strict_verify": False,
+            "require_signature": REQUIRE_SIGNATURE,
+            "trusted": False,
+            "sla_met": False,
+            "max_age_days": max_age_days,
+        }
     try:
         fetched_dt = datetime.fromisoformat(fetched_at)
     except ValueError:
@@ -95,20 +106,37 @@ def freshness_status(max_age_days: int = MAX_INDEX_AGE_DAYS) -> dict:
             "fresh": False,
             "reason": "invalid_state_timestamp",
             "verified": False,
+            "verified_signature": False,
+            "strict_verify": False,
+            "require_signature": REQUIRE_SIGNATURE,
+            "trusted": False,
+            "sla_met": False,
             "max_age_days": max_age_days,
         }
     if fetched_dt.tzinfo is None:
         fetched_dt = fetched_dt.replace(tzinfo=UTC)
     now = datetime.now(tz=UTC)
     age = now - fetched_dt
-    return {
+    expires_at = fetched_dt + timedelta(days=max_age_days)
+    days_remaining = round((expires_at - now).total_seconds() / 86400.0, 2)
+    status = {
         "fresh": age <= timedelta(days=max_age_days),
         "age_days": round(age.total_seconds() / 86400.0, 2),
         "fetched_at": fetched_dt.isoformat(),
+        "expires_at": expires_at.isoformat(),
+        "days_remaining": days_remaining,
         "release_tag": state.get("release_tag"),
         "verified": bool(state.get("verified", False)),
+        "verified_signature": bool(state.get("verified_signature", False)),
+        "strict_verify": bool(state.get("strict_verify", False)),
+        "require_signature": bool(state.get("require_signature", False)),
         "max_age_days": max_age_days,
     }
+    status["trusted"] = bool(status["verified"]) and (
+        (not status["require_signature"]) or bool(status["verified_signature"])
+    )
+    status["sla_met"] = bool(status["fresh"])
+    return status
 
 
 def _download_file(url: str, target_path: Path) -> int:
@@ -218,6 +246,11 @@ def update_indexes(silent: bool = False, strict_verify: bool = UPDATE_STRICT_VER
             "UPDATE_CHECKSUM_MISSING",
             f"Strict verification enabled but checksum asset '{checksum_name}' was not found",
         )
+    if REQUIRE_SIGNATURE and not signature_url:
+        raise UpdateError(
+            "UPDATE_SIGNATURE_MISSING",
+            f"Signature is required but asset '{signature_name}' was not found",
+        )
 
     archive_path = INDEX_ROOT.parent / archive_name
     archive_tmp = archive_path.with_suffix(archive_path.suffix + ".tmp")
@@ -255,6 +288,9 @@ def update_indexes(silent: bool = False, strict_verify: bool = UPDATE_STRICT_VER
     if strict_verify and COSIGN_KEY_PATH and not verified_signature:
         archive_path.unlink(missing_ok=True)
         raise UpdateError("UPDATE_SIGNATURE_FAILED", "Archive signature verification failed")
+    if REQUIRE_SIGNATURE and not verified_signature:
+        archive_path.unlink(missing_ok=True)
+        raise UpdateError("UPDATE_SIGNATURE_REQUIRED", "Signature verification is required but failed/missing")
 
     stage_dir = INDEX_ROOT.parent / ".tref-index-stage"
     shutil.rmtree(stage_dir, ignore_errors=True)
@@ -280,12 +316,16 @@ def update_indexes(silent: bool = False, strict_verify: bool = UPDATE_STRICT_VER
             "sha256": actual_sha,
             "expected_sha256": expected_sha,
             "strict_verify": strict_verify,
+            "require_signature": REQUIRE_SIGNATURE,
             "releases_api": releases_api,
         }
     )
 
     if not silent:
-        print(f"Updated indexes in {INDEX_ROOT} (verified={verified}, signature={verified_signature})")
+        print(
+            f"Updated indexes in {INDEX_ROOT} "
+            f"(verified={verified}, signature={verified_signature}, require_signature={REQUIRE_SIGNATURE})"
+        )
     return INDEX_ROOT
 
 
@@ -299,7 +339,8 @@ def ensure_index_exists(
     candidate = index_root / library / version
     if ensure_fresh and index_root == INDEX_ROOT:
         status = freshness_status()
-        if (not status.get("fresh", False)) or (UPDATE_STRICT_VERIFY and not status.get("verified", False)):
+        untrusted = not status.get("trusted", False)
+        if (not status.get("fresh", False)) or (UPDATE_STRICT_VERIFY and untrusted):
             try:
                 update_indexes(silent=True, strict_verify=UPDATE_STRICT_VERIFY)
             except Exception:

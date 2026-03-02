@@ -7,7 +7,7 @@ import httpx
 
 from tref.config import DEFAULT_FRESHNESS_POLICY, DEFAULT_TOP_K, INDEX_ROOT, OLLAMA_URL
 from tref.errors import DetectionError
-from tref.kb import detect_library_from_query, resolve_version, split_inline_library_version
+from tref.kb import detect_library_from_query, resolve_version_with_reason, split_inline_library_version
 from tref.models import AskResponse
 from tref.retrieval import Retriever, infer_query_intent
 from tref.updater import ensure_index_exists, freshness_status
@@ -64,10 +64,11 @@ def _extract_list_lines(text: str, limit: int = 8) -> list[str]:
     return lines
 
 
-def _extract_code_blocks(text: str) -> list[str]:
+def _extract_code_blocks(text: str) -> list[tuple[str, str]]:
     lines = text.splitlines()
-    blocks: list[str] = []
+    blocks: list[tuple[str, str]] = []
     in_code = False
+    lang = ""
     current: list[str] = []
     for raw in lines:
         line = raw.rstrip("\n")
@@ -75,15 +76,31 @@ def _extract_code_blocks(text: str) -> list[str]:
             if in_code:
                 body = "\n".join(current).strip()
                 if body:
-                    blocks.append(body)
+                    blocks.append((lang, body))
                 current = []
                 in_code = False
+                lang = ""
             else:
+                fence = line.strip()
+                lang = fence[3:].strip().split()[0] if len(fence) > 3 else ""
                 in_code = True
             continue
         if in_code:
             current.append(line)
     return blocks
+
+
+def _normalize_language(lang: str | None) -> str:
+    value = (lang or "").strip().lower()
+    aliases = {
+        "js": "javascript",
+        "node": "javascript",
+        "ts": "typescript",
+        "py": "python",
+        "sh": "bash",
+        "shell": "bash",
+    }
+    return aliases.get(value, value)
 
 
 def _augment_guidance_from_sections(guidance: dict[str, Any], sections: list[dict[str, Any]]) -> dict[str, Any]:
@@ -117,10 +134,15 @@ def _augment_guidance_from_sections(guidance: dict[str, Any], sections: list[dic
         if name == "examples":
             blocks = _extract_code_blocks(text)
             if blocks:
-                for code in blocks:
+                for lang, code in blocks:
                     _append_unique(
                         examples,
-                        {"text": f"```python\n{code}\n```", "doc_url": doc_url, "confidence": guidance.get("confidence", 0)},
+                        {
+                            "text": f"```{lang}\n{code}\n```" if lang else f"```\n{code}\n```",
+                            "doc_url": doc_url,
+                            "confidence": guidance.get("confidence", 0),
+                            "language": _normalize_language(lang),
+                        },
                     )
             else:
                 _append_unique(examples, {"text": text, "doc_url": doc_url, "confidence": guidance.get("confidence", 0)})
@@ -145,6 +167,81 @@ def _augment_guidance_from_sections(guidance: dict[str, Any], sections: list[dic
     guidance["alternatives"] = alternatives
     guidance["citations"] = citations
     return guidance
+
+
+def _extract_structured_fields_from_sections(guidance: dict[str, Any], sections: list[dict[str, Any]]) -> dict[str, Any]:
+    description = ""
+    parameters: list[dict[str, str]] = []
+    returns_text = ""
+    source_url = ""
+    source_title = ""
+    last_updated = ""
+
+    for sec in sections:
+        name = str(sec.get("section", "")).strip().lower()
+        text = str(sec.get("text", "")).strip()
+        if sec.get("doc_url") and not source_url:
+            source_url = str(sec.get("doc_url"))
+        if sec.get("doc_title") and not source_title:
+            source_title = str(sec.get("doc_title"))
+        if sec.get("last_updated") and not last_updated:
+            last_updated = str(sec.get("last_updated"))
+
+        if name == "what it does" and text and not description:
+            description = _one_sentence(text)
+        elif name == "parameters" and text:
+            for line in _extract_list_lines(text, limit=20):
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    parameters.append({"name": k.strip(), "detail": v.strip()})
+                else:
+                    parameters.append({"name": line.strip(), "detail": ""})
+        elif name == "returns" and text and not returns_text:
+            returns_text = _one_sentence(text)
+
+    if description:
+        guidance["description"] = description
+    if parameters:
+        guidance["parameters"] = parameters
+    if returns_text:
+        guidance["returns_text"] = returns_text
+    guidance["source"] = {
+        "url": source_url or None,
+        "title": source_title or None,
+        "last_updated": last_updated or None,
+    }
+    return guidance
+
+
+def _apply_structured_alternatives(guidance: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
+    if not guidance:
+        return guidance
+    raw = metadata.get("alternatives") if isinstance(metadata, dict) else None
+    if not isinstance(raw, list) or not raw:
+        return guidance
+    out: list[dict[str, Any]] = []
+    for alt in raw:
+        if not isinstance(alt, dict):
+            continue
+        option = str(alt.get("option", "")).strip()
+        reason = str(alt.get("reason", "")).strip()
+        if not option or not reason:
+            continue
+        out.append(
+            {
+                "name": option,
+                "why": reason,
+                "doc_url": metadata.get("source_url"),
+            }
+        )
+    if out:
+        guidance["alternatives"] = out
+    return guidance
+
+
+def _one_sentence(text: str) -> str:
+    clean = " ".join(text.replace("\n", " ").split())
+    return clean[:300].strip()
 
 
 def _build_guidance(query: str, hits: list) -> dict[str, Any]:
@@ -216,13 +313,14 @@ def _build_guidance(query: str, hits: list) -> dict[str, Any]:
             cleaned = _strip_chunk_scaffold(hit.text)
             code_blocks = _extract_code_blocks(cleaned)
             if code_blocks:
-                for code in code_blocks:
+                for lang, code in code_blocks:
                     examples.append(
                         {
-                            "text": f"```python\n{code}\n```",
+                            "text": f"```{lang}\n{code}\n```" if lang else f"```\n{code}\n```",
                             "doc_url": hit.source_url,
                             "doc_title": hit.source_title or hit.item,
                             "confidence": hit.score,
+                            "language": _normalize_language(lang),
                         }
                     )
             else:
@@ -321,6 +419,35 @@ def _build_guidance(query: str, hits: list) -> dict[str, Any]:
     }
 
 
+def _prefer_examples_by_language(guidance: dict[str, Any], preferred_language: str | None) -> dict[str, Any]:
+    if not guidance:
+        return guidance
+    wanted = _normalize_language(preferred_language)
+    if not wanted:
+        return guidance
+    examples = list(guidance.get("examples") or [])
+    if not examples:
+        return guidance
+
+    compatible = {"javascript": {"jsx"}, "typescript": {"tsx"}, "bash": {"sh"}, "python": set()}
+    accepted = {wanted} | compatible.get(wanted, set())
+
+    def _example_lang(example: dict[str, Any]) -> str:
+        direct = _normalize_language(str(example.get("language") or ""))
+        if direct:
+            return direct
+        blocks = _extract_code_blocks(str(example.get("text") or ""))
+        if blocks:
+            return _normalize_language(blocks[0][0])
+        return ""
+
+    matched = [ex for ex in examples if _example_lang(ex) in accepted]
+    others = [ex for ex in examples if ex not in matched]
+    guidance["examples"] = matched + others
+    guidance["preferred_language"] = wanted
+    return guidance
+
+
 def _ollama_answer(query: str, contexts: list[dict[str, Any]], model: str) -> str:
     context_blob = "\n\n".join(
         f"[{idx + 1}] {ctx['citation']}\n{ctx['text']}" for idx, ctx in enumerate(contexts)
@@ -351,6 +478,7 @@ def ask(
     freshness_policy: str = DEFAULT_FRESHNESS_POLICY,
     no_autodetect: bool = False,
     include_full_doc: bool = False,
+    preferred_language: str | None = None,
     index_root: Path | None = None,
 ) -> dict[str, Any] | AskResponse:
     clean_query = query.strip()
@@ -400,7 +528,7 @@ def ask(
         ensure_fresh = True
         strict_fresh_effective = strict_fresh
 
-    resolved_version = resolve_version(
+    resolved_version, version_resolution_reason = resolve_version_with_reason(
         library,
         version,
         index_root=base_dir,
@@ -423,10 +551,19 @@ def ask(
     if not freshness.get("fresh", False):
         warnings.append("Index freshness check failed or is stale. Run `tref update`.")
     if freshness.get("verified") is False:
-        warnings.append("Index verification is missing/failed for current local snapshot.")
+        warnings.append("Index checksum verification is missing/failed for current local snapshot.")
+    if freshness.get("require_signature") and (freshness.get("verified_signature") is not True):
+        warnings.append("Signature verification is required but missing/failed for current local snapshot.")
+    if freshness.get("trusted") is False:
+        warnings.append("Index snapshot is not fully trusted under current trust policy.")
     version_mismatch = bool(requested_version) and (effective_version != requested_version)
     if version_mismatch:
-        warnings.append(f"Requested version '{requested_version}' not found; using '{effective_version}'.")
+        if version_resolution_reason.startswith("compatible-"):
+            warnings.append(
+                f"Requested version '{requested_version}' mapped to compatible '{effective_version}' ({version_resolution_reason})."
+            )
+        else:
+            warnings.append(f"Requested version '{requested_version}' not found; using '{effective_version}'.")
 
     provenance = {
         "index_dir": str(index_dir),
@@ -443,6 +580,9 @@ def ask(
         top_item = guidance.get("command_or_function") or hits[0].item
         sections = retriever.item_document(top_item)
         guidance = _augment_guidance_from_sections(guidance, sections)
+        guidance = _extract_structured_fields_from_sections(guidance, sections)
+        guidance = _apply_structured_alternatives(guidance, retriever.item_metadata(top_item))
+    guidance = _prefer_examples_by_language(guidance, preferred_language)
     full_document = None
     query_flags = _query_flags(clean_query)
     if hits and (include_full_doc or query_flags["overview_focus"]):
@@ -455,6 +595,11 @@ def ask(
         library=library,
         version=effective_version,
         version_requested=requested_version,
+        version_resolution={
+            "requested": requested_version,
+            "resolved": effective_version,
+            "reason": version_resolution_reason,
+        },
         version_mismatch=version_mismatch,
         query=clean_query,
         results=hits,

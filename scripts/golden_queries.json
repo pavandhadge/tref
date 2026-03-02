@@ -6,49 +6,56 @@
       "library": "git",
       "version": "2.44",
       "expected_top_item": "git.branch",
-      "expected_alternatives_contains": ["git switch -c", "git checkout -b"]
+      "expected_alternatives_contains": ["git switch -c", "git checkout -b"],
+      "min_confidence": 0.55
     },
     {
       "id": "git_rebase_safe",
       "query": "git@2.44 rebase safely avoid mistakes",
       "library": "git",
       "version": "2.44",
-      "expected_top_item": "git.rebase"
+      "expected_top_item": "git.rebase",
+      "min_confidence": 0.50
     },
     {
       "id": "pandas_groupby",
       "query": "pandas@2.2 groupby multiple columns mean",
       "library": "pandas",
       "version": "2.2",
-      "expected_top_item": "DataFrame.groupby"
+      "expected_top_item": "DataFrame.groupby",
+      "min_confidence": 0.50
     },
     {
       "id": "pandas_agg",
       "query": "pandas@2.2 agg custom lambda quantile",
       "library": "pandas",
       "version": "2.2",
-      "expected_top_item": "DataFrame.agg"
+      "expected_top_item": "DataFrame.agg",
+      "min_confidence": 0.45
     },
     {
       "id": "docker_run",
       "query": "docker@26.1 run with cpu and memory limits",
       "library": "docker",
       "version": "26.1",
-      "expected_top_item": "docker.run"
+      "expected_top_item": "docker.run",
+      "min_confidence": 0.50
     },
     {
       "id": "react_state",
       "query": "react@18 how do i save state in a component",
       "library": "react",
       "version": "18",
-      "expected_top_item": "useState"
+      "expected_top_item": "useState",
+      "min_confidence": 0.50
     },
     {
       "id": "algo_binary_search",
       "query": "algorithms@1.0 binary search complexity and example",
       "library": "algorithms",
       "version": "1.0",
-      "expected_top_item": "binary_search"
+      "expected_top_item": "binary_search",
+      "min_confidence": 0.50
     }
   ]
 }

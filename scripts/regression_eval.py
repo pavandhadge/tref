@@ -17,6 +17,7 @@ def main() -> int:
     parser.add_argument("--suite", type=Path, required=True)
     parser.add_argument("--index-root", type=Path, default=Path("/tmp/tref-indexes-upgrade"))
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--min-pass-rate", type=float, default=1.0)
     args = parser.parse_args()
 
     suite = json.loads(args.suite.read_text(encoding="utf-8"))
@@ -46,6 +47,11 @@ def main() -> int:
           if not _contains_any(alt_names, list(expect_alts)):
               failures.append("alternatives missing expected entries")
 
+      confidence = float(guidance.get("confidence") or 0.0)
+      min_conf = float(case.get("min_confidence") or 0.0)
+      if confidence < min_conf:
+          failures.append(f"confidence below threshold: got={confidence:.3f} min={min_conf:.3f}")
+
       if failures:
           report["failed"] = int(report["failed"]) + 1
           status = "failed"
@@ -60,16 +66,21 @@ def main() -> int:
               "top_item": top_item,
               "expected_top_item": case.get("expected_top_item"),
               "failures": failures,
-              "confidence": guidance.get("confidence"),
+              "confidence": confidence,
+              "min_confidence": min_conf,
           }
       )
+
+    pass_rate = (float(report["passed"]) / float(report["total"])) if int(report["total"]) > 0 else 0.0
+    report["pass_rate"] = round(pass_rate, 4)
+    report["min_pass_rate"] = float(args.min_pass_rate)
 
     out = json.dumps(report, indent=2)
     print(out)
     if args.output:
         args.output.write_text(out + "\n", encoding="utf-8")
 
-    return 0 if int(report["failed"]) == 0 else 1
+    return 0 if pass_rate >= float(args.min_pass_rate) else 1
 
 
 if __name__ == "__main__":

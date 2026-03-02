@@ -12,12 +12,19 @@ last_updated: "2025-03-02"
 schema_version: "2.0"
 source_url: "https://react.dev/reference/react/useState"
 source_title: "React useState"
+alternatives:
+  - option: "useReducer"
+    reason: "Handle complex multi-action state transitions."
+  - option: "Redux/Zustand"
+    reason: "Manage shared app-wide state."
+  - option: "useRef"
+    reason: "Store mutable values without triggering re-renders."
 ---
 
 # react.useState
 
 ## Signature
-```python
+```jsx
 const [state, setState] = useState(initialState)
 ```
 
@@ -30,7 +37,7 @@ Creates local state for a function component and returns the current value plus 
 - State is component-scoped (not global/shared store).
 
 ## Examples
-```python
+```jsx
 import { useState } from "react";
 
 function Counter() {
@@ -39,7 +46,7 @@ function Counter() {
 }
 ```
 
-```python
+```jsx
 function Form() {
   const [form, setForm] = useState({ name: "", email: "" });
   const onChange = e => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));

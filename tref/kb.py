@@ -46,6 +46,16 @@ def _version_key(version: str) -> tuple:
     return (0, tuple(norm))
 
 
+def _normalized_version_text(version: str) -> str:
+    v = version.strip()
+    if v == "latest":
+        return v
+    parts = [p for p in re.split(r"[._-]", v) if p]
+    while parts and parts[-1] == "0":
+        parts.pop()
+    return ".".join(parts) if parts else v
+
+
 def parse_library_version(token: str) -> tuple[str | None, str | None]:
     match = LIBVER_RE.match(token.strip())
     if not match:
@@ -165,6 +175,21 @@ def resolve_version(
     index_root: Path = INDEX_ROOT,
     allow_remote: bool = True,
 ) -> str:
+    resolved, _reason = resolve_version_with_reason(
+        library=library,
+        requested=requested,
+        index_root=index_root,
+        allow_remote=allow_remote,
+    )
+    return resolved
+
+
+def resolve_version_with_reason(
+    library: str,
+    requested: str | None,
+    index_root: Path = INDEX_ROOT,
+    allow_remote: bool = True,
+) -> tuple[str, str]:
     versions = local_versions(library, index_root=index_root)
     manifest_info: dict[str, Any] = {}
     manifest_versions: list[str] = []
@@ -173,19 +198,27 @@ def resolve_version(
         manifest_info = manifest.get("libraries", {}).get(library, {})
         manifest_versions = manifest_info.get("versions", [])
 
+    all_versions = sorted(set(versions + manifest_versions), key=_version_key)
+
     if requested:
         if requested in versions or requested in manifest_versions:
-            return requested
+            return requested, "exact"
+        normalized_requested = _normalized_version_text(requested)
+        for ver in all_versions:
+            if _normalized_version_text(ver) == normalized_requested:
+                return ver, "compatible-normalized"
         all_versions = sorted(set(versions + manifest_versions), key=_version_key)
         for ver in all_versions:
             if ver.startswith(requested):
-                return ver
-        return requested
+                return ver, "compatible-prefix"
+            if requested.startswith(ver):
+                return ver, "compatible-prefix"
+        return requested, "unresolved-requested"
 
     if versions:
         if "latest" in versions:
-            return "latest"
-        return sorted(versions, key=_version_key)[-1]
+            return "latest", "default-latest-local"
+        return sorted(versions, key=_version_key)[-1], "default-local-highest"
 
     latest = manifest_info.get("latest")
-    return latest if latest else "latest"
+    return (latest if latest else "latest"), "default-remote-latest"

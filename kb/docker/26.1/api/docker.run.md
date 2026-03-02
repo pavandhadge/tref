@@ -12,12 +12,19 @@ last_updated: "2025-03-02"
 schema_version: "2.0"
 source_url: "https://docs.docker.com/engine/reference/commandline/run/"
 source_title: "docker run reference"
+alternatives:
+  - option: "docker compose up"
+    reason: "Run multi-service applications with declarative config."
+  - option: "docker exec -it <container> ..."
+    reason: "Run commands inside an already-running container."
+  - option: "docker create + docker start"
+    reason: "Split creation from startup lifecycle."
 ---
 
 # docker.run
 
 ## Signature
-```python
+```bash
 docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
 ```
 
@@ -30,19 +37,19 @@ Creates a new container from an image and executes its main process with runtime
 - You need isolated command execution with mounts/env vars.
 
 ## Examples
-```python
+```bash
 docker run --name web -p 8080:80 -d nginx:latest
 ```
 
-```python
+```bash
 docker run --rm -it python:3.11-slim python -q
 ```
 
-```python
+```bash
 docker run --rm -v "$PWD":/app -w /app node:20 npm test
 ```
 
-```python
+```bash
 docker run --cpus=1.5 --memory=1g --pids-limit=256 myorg/worker:2.0.0
 ```
 

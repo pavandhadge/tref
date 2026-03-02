@@ -12,6 +12,13 @@ last_updated: "2025-03-02"
 schema_version: "2.0"
 source_url: "https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.agg.html"
 source_title: "pandas.DataFrame.agg"
+alternatives:
+  - option: "DataFrame.describe()"
+    reason: "Use quick standard summary statistics."
+  - option: "GroupBy.agg(...)"
+    reason: "Use per-group aggregation instead of whole-frame aggregation."
+  - option: "DataFrame.transform(...)"
+    reason: "Use shape-preserving transformations."
 ---
 
 # pandas.DataFrame.agg

@@ -31,6 +31,7 @@ class AskResponse:
     query: str
     results: List[SearchResult]
     version_requested: str | None = None
+    version_resolution: Dict[str, Any] | None = None
     version_mismatch: bool = False
     answer: str | None = None
     autodetected_library: bool = False
@@ -45,6 +46,7 @@ class AskResponse:
             "library": self.library,
             "version": self.version,
             "version_requested": self.version_requested,
+            "version_resolution": self.version_resolution,
             "version_mismatch": self.version_mismatch,
             "query": self.query,
             "results": [result.to_dict() for result in self.results],
