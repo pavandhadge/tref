@@ -12,12 +12,19 @@ last_updated: "2025-03-02"
 schema_version: "2.0"
 source_url: "https://git-scm.com/docs/git-branch"
 source_title: "git-branch Documentation"
+alternatives:
+  - option: "git switch -c <name>"
+    reason: "Modern and clear create+switch flow."
+  - option: "git checkout -b <name>"
+    reason: "Works on older Git versions and widely used."
+  - option: "git worktree add -b <name> <path> <start-point>"
+    reason: "Work on multiple branches in separate directories."
 ---
 
 # git.branch
 
 ## Signature
-```python
+```bash
 git branch [--all] [--list] [<branchname>]
 ```
 
@@ -30,22 +37,22 @@ Manages branches: create, list, move, and delete branch references.
 - You need to rename or remove branches.
 
 ## Examples
-```python
+```bash
 # create branch only (stay on current branch)
 git branch feature/login-flow
 ```
 
-```python
+```bash
 # create and switch in one step
 git switch -c feature/login-flow
 ```
 
-```python
+```bash
 # older equivalent: create and switch
 git checkout -b feature/login-flow
 ```
 
-```python
+```bash
 # create local branch tracking remote
 git switch -c feature/login-flow --track origin/feature/login-flow
 ```

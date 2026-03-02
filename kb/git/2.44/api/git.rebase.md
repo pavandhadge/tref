@@ -12,12 +12,19 @@ last_updated: "2025-03-02"
 schema_version: "2.0"
 source_url: "https://git-scm.com/docs/git-rebase"
 source_title: "git-rebase Documentation"
+alternatives:
+  - option: "git merge <branch>"
+    reason: "Preserve branch topology without rewriting history."
+  - option: "git cherry-pick <commit>"
+    reason: "Replay specific commits only."
+  - option: "git pull --rebase"
+    reason: "Keep local branch linear while syncing from remote."
 ---
 
 # git.rebase
 
 ## Signature
-```python
+```bash
 git rebase [--onto <newbase>] [<upstream> [<branch>]]
 ```
 
@@ -30,20 +37,20 @@ Moves a branch by replaying its commits onto another base commit. Useful for lin
 - You are rewriting local (not shared) history.
 
 ## Examples
-```python
+```bash
 git checkout feature
 git rebase main
 ```
 
-```python
+```bash
 git rebase --onto release/2.0 main feature
 ```
 
-```python
+```bash
 git rebase -i HEAD~5
 ```
 
-```python
+```bash
 git add <resolved-files>
 git rebase --continue
 ```

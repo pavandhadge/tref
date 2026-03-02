@@ -29,6 +29,7 @@ HTTP_TIMEOUT_SECONDS = float(os.getenv("TREF_HTTP_TIMEOUT_SECONDS", "20"))
 HTTP_MAX_RETRIES = int(os.getenv("TREF_HTTP_MAX_RETRIES", "3"))
 HTTP_RETRY_BACKOFF_SECONDS = float(os.getenv("TREF_HTTP_RETRY_BACKOFF_SECONDS", "0.5"))
 UPDATE_STRICT_VERIFY = os.getenv("TREF_UPDATE_STRICT_VERIFY", "1") == "1"
+REQUIRE_SIGNATURE = os.getenv("TREF_REQUIRE_SIGNATURE", "0") == "1"
 MAX_DOWNLOAD_BYTES = int(os.getenv("TREF_MAX_DOWNLOAD_BYTES", str(1024 * 1024 * 1024)))
 COSIGN_KEY_PATH = os.getenv("TREF_COSIGN_KEY_PATH", "")
 COSIGN_BIN = os.getenv("TREF_COSIGN_BIN", "cosign")
@@ -104,5 +105,6 @@ def get_remote_settings() -> dict[str, Any]:
         "release_checksum_asset_name": get_release_checksum_asset_name(),
         "release_signature_asset_name": get_release_signature_asset_name(),
         "strict_verify": UPDATE_STRICT_VERIFY,
+        "require_signature": REQUIRE_SIGNATURE,
         "remote_config_file": str(REMOTE_CONFIG_FILE),
     }

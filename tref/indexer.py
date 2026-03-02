@@ -28,6 +28,7 @@ REQUIRED_FRONTMATTER_KEYS = {
     "intent",
     "source_url",
     "source_title",
+    "alternatives",
 }
 
 SCHEMA_V2_REQUIRED_HEADINGS = {
@@ -93,6 +94,16 @@ def _validate_frontmatter(meta: dict[str, Any], doc_path: Path) -> None:
         raise ValidationError("KB_FRONTMATTER_INVALID", f"Invalid 'source_url' in {doc_path}")
     if not isinstance(meta.get("source_title"), str) or not meta["source_title"].strip():
         raise ValidationError("KB_FRONTMATTER_INVALID", f"Invalid 'source_title' in {doc_path}")
+    alternatives = meta.get("alternatives")
+    if not isinstance(alternatives, list) or not alternatives:
+        raise ValidationError("KB_FRONTMATTER_INVALID", f"Invalid 'alternatives' in {doc_path}; expected non-empty list")
+    for entry in alternatives:
+        if not isinstance(entry, dict):
+            raise ValidationError("KB_FRONTMATTER_INVALID", f"Invalid alternatives entry in {doc_path}; expected dict")
+        opt = str(entry.get("option", "")).strip()
+        rea = str(entry.get("reason", "")).strip()
+        if not opt or not rea:
+            raise ValidationError("KB_FRONTMATTER_INVALID", f"Each alternative needs option+reason in {doc_path}")
     if "aliases" in meta and (
         not isinstance(meta["aliases"], list) or not all(isinstance(x, str) and x.strip() for x in meta["aliases"])
     ):
@@ -140,6 +151,7 @@ def _parse_markdown(doc_path: Path, kb_root: Path) -> list[dict[str, Any]]:
                 "keywords": list(meta["keywords"]),
                 "aliases": list(meta.get("aliases", [])),
                 "intent": str(meta.get("intent", "")),
+                "alternatives": list(meta.get("alternatives", [])),
                 "section": section_title,
                 "source_last_updated": str(meta["last_updated"]),
                 "source_doc_hash": doc_hash,

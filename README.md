@@ -26,6 +26,9 @@ tref --freshness-policy offline-only "pandas groupby agg"
 # update indexes with strict verification
 tref update --strict-verify
 
+# run regression quality gate
+tref eval --index-root /tmp/tref-indexes --min-pass-rate 1.0
+
 # status + diagnostics
 tref status
 tref doctor
@@ -86,3 +89,4 @@ print(result["provenance"])
 - `TREF_FRESHNESS_POLICY`
 - `TREF_COSIGN_KEY_PATH`
 - `TREF_COSIGN_BIN`
+- `TREF_REQUIRE_SIGNATURE`

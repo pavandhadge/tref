@@ -95,6 +95,8 @@ class Retriever:
                         "section": raw.get("section", ""),
                         "source_url": raw.get("source_url"),
                         "source_title": raw.get("source_title"),
+                        "source_last_updated": raw.get("source_last_updated"),
+                        "alternatives": raw.get("alternatives", []),
                         "query_text": query_text,
                         "query_tokens": _tokenize(query_text),
                     }
@@ -204,6 +206,23 @@ class Retriever:
                     "section": section.get("section", ""),
                     "text": _strip_chunk_scaffold(section.get("text", "")),
                     "doc_url": section.get("source_url"),
+                    "doc_title": section.get("source_title"),
+                    "last_updated": section.get("source_last_updated"),
                 }
             )
         return out
+
+    def item_metadata(self, item: str) -> dict[str, object]:
+        for chunk in self.chunks:
+            if chunk["item"] == item:
+                return {
+                    "library": chunk.get("library"),
+                    "version": chunk.get("version"),
+                    "item": chunk.get("item"),
+                    "signature": chunk.get("signature"),
+                    "alternatives": list(chunk.get("alternatives") or []),
+                    "source_url": chunk.get("source_url"),
+                    "source_title": chunk.get("source_title"),
+                    "source_last_updated": chunk.get("source_last_updated"),
+                }
+        return {}

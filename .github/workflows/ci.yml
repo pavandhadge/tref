@@ -36,6 +36,26 @@ jobs:
       - name: Validate KB
         run: python scripts/validate_kb.py kb
 
+  retrieval-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Build local indexes
+        run: python scripts/build_index.py kb --output /tmp/tref-indexes-ci
+      - name: Run regression gate
+        run: |
+          python -m tref eval \
+            --index-root /tmp/tref-indexes-ci \
+            --suite scripts/golden_queries.json \
+            --min-pass-rate 1.0
+
   perf-budget:
     runs-on: ubuntu-latest
     steps:

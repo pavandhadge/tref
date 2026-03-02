@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import statistics
 import sys
@@ -11,7 +12,6 @@ from typing import Optional
 
 import typer
 from rich.console import Console
-from rich.syntax import Syntax
 from rich.table import Table
 
 from tref.api import ask
@@ -58,12 +58,15 @@ def _short_block(text: str, max_lines: int = 6) -> str:
     return "\n".join(lines[:max_lines]) + "\n..."
 
 
-def _extract_code_block(text: str) -> str | None:
+def _extract_code_block(text: str) -> tuple[str, str] | None:
     lines = text.splitlines()
     start = None
+    lang = ""
     for i, ln in enumerate(lines):
         if ln.strip().startswith("```"):
             start = i
+            fence = ln.strip()
+            lang = fence[3:].strip().split()[0] if len(fence) > 3 else ""
             break
     if start is None:
         return None
@@ -75,7 +78,9 @@ def _extract_code_block(text: str) -> str | None:
     if end is None:
         return None
     body = "\n".join(lines[start + 1 : end]).strip()
-    return body if body else None
+    if not body:
+        return None
+    return (lang or "text", body)
 
 
 def _clean_bullet_line(text: str) -> str:
@@ -104,6 +109,35 @@ def _two_line_info(text: str) -> str:
 def _print_section(title: str) -> None:
     console.print("")
     console.print(f"[bold]{title}[/bold]")
+    console.print("─" * 44)
+
+
+def _kv(label: str, value: str) -> None:
+    console.print(f"[bold]{label}[/bold]  {value}")
+
+
+def _parse_alternative_text(name: str, why: str) -> tuple[str, str]:
+    option = (name or "").strip()
+    reason = (why or "").strip()
+    m = re.match(r"^`([^`]+)`\s*(.*)$", option)
+    if m:
+        option = m.group(1).strip()
+        tail = m.group(2).strip()
+        if tail and not reason:
+            reason = tail
+    if not reason:
+        if ". " in option:
+            left, right = option.split(". ", 1)
+            if "(" in left or "." in left or " " not in left:
+                option = left.strip()
+                reason = right.strip()
+    return option, reason
+
+
+def _print_code_block(code: str) -> None:
+    console.print("```")
+    console.print(code)
+    console.print("```")
 
 
 def _print_results(payload: dict, verbose: bool = False) -> None:
@@ -111,35 +145,61 @@ def _print_results(payload: dict, verbose: bool = False) -> None:
         console.print("[yellow]No results found.[/yellow]")
         return
 
+    guidance = payload.get("guidance") or {}
+    item_name = str(guidance.get("command_or_function") or payload["results"][0].get("item") or "")
+    console.print(f"[bold]{payload['library']}@{payload['version']}[/bold] • [bold]{item_name}[/bold]")
+
     if payload.get("version_mismatch"):
-        console.print(f"[bold]tref[/bold]  {payload['library']}@{payload['version']}")
         req = payload.get("version_requested")
         got = payload.get("version")
-        console.print(f"[yellow]Version Notice:[/yellow] Requested '{req}', using '{got}'.")
+        reason = ((payload.get("version_resolution") or {}).get("reason") or "").strip()
+        if reason:
+            console.print(f"[yellow]Version Notice:[/yellow] Requested '{req}', using '{got}' ({reason}).")
+        else:
+            console.print(f"[yellow]Version Notice:[/yellow] Requested '{req}', using '{got}'.")
 
-    guidance = payload.get("guidance") or {}
     if guidance:
-        _print_section("Best Match")
-        console.print(f"- Command/Function: {guidance.get('command_or_function')}")
-        console.print(f"- Signature: {guidance.get('signature')}")
-        console.print(f"- Confidence: {guidance.get('confidence', 0.0):.3f}")
-        preview = guidance.get("preview") or {}
-        preview_text = str(preview.get("text") or "").strip()
-        if preview_text:
-            console.print("- What it does:")
-            console.print(f"  {_two_line_info(preview_text)}")
-        if guidance.get("returns"):
+        _print_section("Description")
+        description = str(guidance.get("description") or "").strip()
+        if not description:
+            preview = guidance.get("preview") or {}
+            preview_text = str(preview.get("text") or "").strip()
+            description = _two_line_info(preview_text) if preview_text else ""
+        if description:
+            console.print(description)
+
+        _print_section("Signature")
+        console.print(f"[italic]{str(guidance.get('signature') or 'not available')}[/italic]")
+
+        params = guidance.get("parameters") or []
+        if params:
+            _print_section("Parameters")
+            for param in params:
+                name = str(param.get("name") or "").strip()
+                detail = str(param.get("detail") or "").strip()
+                if name and detail:
+                    console.print(f"• [bold]{name:<12}[/bold]  {detail}")
+                elif name:
+                    console.print(f"• [bold]{name}[/bold]")
+
+        returns_text = str(guidance.get("returns_text") or "").strip()
+        if not returns_text and guidance.get("returns"):
             r = guidance["returns"]
-            console.print(f"- Returns: {r.get('doc_title') or 'documented'}")
+            returns_text = str(r.get("doc_title") or "").strip()
+        if returns_text:
+            _print_section("Returns")
+            console.print(returns_text)
 
         cautions = guidance.get("cautions", [])
         if cautions:
-            _print_section("Important Cautions")
+            _print_section(f"Gotchas & Version Notes ({payload['version']})")
             caution_limit = len(cautions) if verbose else 5
             for caution in cautions[:caution_limit]:
                 ref = caution.get("doc_url")
                 suffix = f" [{ref}]" if ref else ""
-                console.print(f"- {_one_line(_clean_bullet_line(caution['text']), 140)}{suffix}")
+                console.print(f"• {_one_line(_clean_bullet_line(caution['text']), 220)}")
+                if suffix:
+                    console.print(f"  [bright_black]ref: {ref}[/bright_black]")
 
         examples = guidance.get("examples", [])
         if examples:
@@ -147,12 +207,14 @@ def _print_results(payload: dict, verbose: bool = False) -> None:
             for idx, example in enumerate(examples[:2], start=1):
                 ref = example.get("doc_url")
                 suffix = f" [{ref}]" if ref else ""
-                code = _extract_code_block(example["text"])
-                console.print(f"{idx}.")
-                if code:
-                    console.print(Syntax(code, "python", theme="ansi_dark", word_wrap=True))
+                parsed = _extract_code_block(example["text"])
+                console.print(f"[bold]Example {idx}[/bold]")
+                if parsed:
+                    lang, code = parsed
+                    _kv("Language", lang.lower())
+                    _print_code_block(code)
                     if suffix:
-                        console.print(f"source: {ref}")
+                        console.print(f"Source  {ref}")
                 else:
                     console.print(f"- {_one_line(example['text'], 180)}{suffix}")
 
@@ -161,20 +223,33 @@ def _print_results(payload: dict, verbose: bool = False) -> None:
             _print_section("References")
             refs_limit = len(refs) if verbose else 3
             for ref in refs[:refs_limit]:
-                console.print(f"- {ref.get('title')}: {ref.get('url')}")
+                console.print(f"• {ref.get('title')}")
+                console.print(f"  {ref.get('url')}")
+
+        source = guidance.get("source") or {}
+        source_url = source.get("url")
+        if source_url:
+            _print_section("Source (local KB)")
+            if source.get("title"):
+                console.print(str(source.get("title")))
+            console.print(str(source_url))
+            if source.get("last_updated"):
+                console.print(f"(last updated: {source.get('last_updated')})")
 
         alternatives = guidance.get("alternatives", [])
         if alternatives:
-            _print_section("Other Good Options")
+            _print_section(f"Other Good Options In {payload['library']}@{payload['version']}")
             alt_limit = len(alternatives) if verbose else 3
             for alt in alternatives[:alt_limit]:
                 name = alt.get("name") or "alternative"
                 why = alt.get("why") or ""
-                doc_url = alt.get("doc_url")
-                if doc_url:
-                    console.print(f"- {name}: {why} [{doc_url}]")
+                option, reason = _parse_alternative_text(str(name), str(why))
+                if reason and "Alternative approach from official docs context." in reason:
+                    reason = ""
+                if reason:
+                    console.print(f"• {option}  ->  {reason}")
                 else:
-                    console.print(f"- {name}: {why}")
+                    console.print(f"• {option}")
 
     if verbose:
         _print_section("Preview")
@@ -184,24 +259,32 @@ def _print_results(payload: dict, verbose: bool = False) -> None:
             )
             if result.get("doc_url"):
                 console.print(f"source: {result.get('doc_url')}")
-            console.print(Syntax(result["text"], "markdown", theme="ansi_dark", word_wrap=True))
+            console.print(result["text"])
 
     if payload.get("answer"):
         _print_section("LLM Answer")
         console.print(payload["answer"])
 
+    notices = payload.get("warnings") or []
+    if notices:
+        _print_section("Notices")
+        for msg in notices:
+            console.print(f"• {msg}")
+
     full_doc = payload.get("full_document")
     if full_doc:
         _print_section("Documentation Dump")
-        console.print(f"- Item: {full_doc.get('item')}")
+        _kv("Item", str(full_doc.get("item") or ""))
         sections = full_doc.get("sections") or []
         for sec in sections:
             sec_name = sec.get("section", "")
-            console.print(f"\n[{sec_name}]")
+            console.print(f"\n[bold]{sec_name}[/bold]")
             text = sec.get("text", "")
-            code = _extract_code_block(text)
-            if code:
-                console.print(Syntax(code, "python", theme="ansi_dark", word_wrap=True))
+            parsed = _extract_code_block(text)
+            if parsed:
+                lang, code = parsed
+                _kv("Language", lang)
+                _print_code_block(code)
             else:
                 console.print(_short_block(text, max_lines=16 if verbose else 8))
 
@@ -231,6 +314,7 @@ def _execute_query(
     no_autodetect: bool,
     verbose: bool,
     full_doc: bool,
+    lang: Optional[str],
     index_root: Optional[Path],
 ) -> None:
     query_text = " ".join(query_tokens).strip()
@@ -259,6 +343,7 @@ def _execute_query(
             freshness_policy=freshness_policy,
             no_autodetect=no_autodetect,
             include_full_doc=full_doc,
+            preferred_language=lang,
             index_root=index_root,
         )
     except Exception as exc:
@@ -280,6 +365,7 @@ def _run_chat(
     freshness_policy: str,
     verbose: bool,
     full_doc: bool,
+    lang: Optional[str],
 ) -> None:
     console.print(f"Chat mode for [bold]{library}@{version or 'latest'}[/bold]. Type 'exit' to quit.")
     while True:
@@ -299,6 +385,7 @@ def _run_chat(
             no_autodetect=False,
             verbose=verbose,
             full_doc=full_doc,
+            lang=lang,
             index_root=index_root,
         )
 
@@ -329,6 +416,7 @@ def query_cmd(
     no_autodetect: bool = typer.Option(False, "--no-autodetect", help="Disable query-based library detection."),
     verbose: bool = typer.Option(False, "--verbose", help="Show full retrieved chunks."),
     full_doc: bool = typer.Option(False, "--full-doc", help="Dump the full document for the best match."),
+    lang: Optional[str] = typer.Option(None, "--lang", help="Prefer examples in this language (python|bash|jsx|... )."),
     index_root: Optional[Path] = typer.Option(None, "--index-root", help="Override index root path."),
 ) -> None:
     if chat:
@@ -344,6 +432,7 @@ def query_cmd(
             freshness_policy=freshness_policy,
             verbose=verbose,
             full_doc=full_doc,
+            lang=lang,
         )
         return
 
@@ -360,6 +449,7 @@ def query_cmd(
         no_autodetect,
         verbose,
         full_doc,
+        lang,
         index_root,
     )
 
@@ -522,12 +612,14 @@ def run() -> None:
 def eval_cmd(
     suite: Path = typer.Option(Path("scripts/golden_queries.json"), "--suite", exists=True, dir_okay=False),
     index_root: Optional[Path] = typer.Option(None, "--index-root"),
+    min_pass_rate: float = typer.Option(1.0, "--min-pass-rate", min=0.0, max=1.0),
     output: Optional[Path] = typer.Option(None, "--output", help="Optional path to write JSON report."),
 ) -> None:
     """Run golden-query regression suite for ranking accuracy."""
     cmd = [sys.executable, "scripts/regression_eval.py", "--suite", str(suite)]
     if index_root:
         cmd.extend(["--index-root", str(index_root)])
+    cmd.extend(["--min-pass-rate", str(min_pass_rate)])
     if output:
         cmd.extend(["--output", str(output)])
     proc = subprocess.run(cmd, capture_output=True, text=True)

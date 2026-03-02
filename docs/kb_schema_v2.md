@@ -16,6 +16,7 @@ All KB Markdown files must follow this schema. The indexer enforces it strictly.
 - `schema_version` (must be `"2.0"`)
 - `source_url` (https URL to original documentation)
 - `source_title` (str)
+- `alternatives` (list[object], each object has `option` + `reason`)
 
 ## Required `##` Sections
 1. `Signature`
@@ -27,6 +28,7 @@ All KB Markdown files must follow this schema. The indexer enforces it strictly.
 7. `References`
 
 ## Notes
-- `Alternatives` should include valid equivalent/related commands/functions.
+- `alternatives` frontmatter is the source of truth for machine-readable options/reasons.
+- `Alternatives` section should remain human-readable and consistent with frontmatter.
 - `References` should contain authoritative links.
 - Keep examples executable and version-correct.

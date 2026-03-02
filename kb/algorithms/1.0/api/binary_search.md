@@ -12,6 +12,13 @@ last_updated: "2025-03-02"
 schema_version: "2.0"
 source_url: "https://en.wikipedia.org/wiki/Binary_search_algorithm"
 source_title: "Binary search algorithm"
+alternatives:
+  - option: "Linear search"
+    reason: "Use for unsorted or very small lists."
+  - option: "Hash map / set lookup"
+    reason: "Use near O(1) membership when extra memory is acceptable."
+  - option: "bisect module"
+    reason: "Use built-in insertion-point binary operations in Python."
 ---
 
 # algorithms.binary_search

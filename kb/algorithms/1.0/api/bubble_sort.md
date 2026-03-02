@@ -12,6 +12,13 @@ last_updated: "2025-03-02"
 schema_version: "2.0"
 source_url: "https://en.wikipedia.org/wiki/Bubble_sort"
 source_title: "Bubble sort"
+alternatives:
+  - option: "sorted(...) / Timsort"
+    reason: "Production-grade stable sort in Python."
+  - option: "Merge sort / quicksort / heapsort"
+    reason: "Better asymptotic performance for larger datasets."
+  - option: "Insertion sort"
+    reason: "Simple and often better for small nearly-sorted arrays."
 ---
 
 # algorithms.bubble_sort

@@ -12,6 +12,11 @@ last_updated: "2025-03-02"
 schema_version: "2.0"
 source_url: "https://docs.pola.rs/api/python/stable/reference/dataframe/api/polars.DataFrame.group_by.html"
 source_title: "polars.DataFrame.group_by"
+alternatives:
+  - option: "Lazy query + group_by"
+    reason: "Use lazy execution for larger-than-memory or optimized pipelines."
+  - option: "partition_by(...)"
+    reason: "Materialize per-group DataFrames directly."
 ---
 
 # polars.DataFrame.group_by
