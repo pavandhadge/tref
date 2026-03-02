@@ -1,0 +1,309 @@
+import {
+  Terminal,
+  ArrowDown,
+  Github,
+  Code,
+  BookOpen,
+  Download,
+  RefreshCw,
+  Server,
+  Shield,
+  Zap,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import FeatureCard from "@/components/FeatureCard";
+import TerminalDemo from "@/components/TerminalDemo";
+import Footer from "@/components/Footer";
+import Header from "@/components/Header";
+import { Link } from "react-router-dom";
+
+const Index = () => {
+  const features = [
+    {
+      icon: <BookOpen className="h-6 w-6" />,
+      title: "Versioned Retrieval",
+      description: "Ask natural language questions against exact docs snapshots like `pandas@2.2`.",
+      command: "tref \"pandas@2.2 groupby multiple columns agg mean\"",
+    },
+    {
+      icon: <Code className="h-6 w-6" />,
+      title: "Structured Output",
+      description: "Readable sections: description, signature, cautions, examples, references, and alternatives.",
+      command: "tref \"git@2.44 create a new branch and switch\"",
+    },
+    {
+      icon: <RefreshCw className="h-6 w-6" />,
+      title: "Trusted Updates",
+      description: "Checksum-verified updates with optional required signature verification.",
+      command: "tref update --strict-verify",
+    },
+    {
+      icon: <Shield className="h-6 w-6" />,
+      title: "Freshness & Trust Signals",
+      description: "Status and notices expose freshness SLA and verification state explicitly.",
+      command: "tref status",
+    },
+    {
+      icon: <Zap className="h-6 w-6" />,
+      title: "Language-Aware Examples",
+      description: "Prefer examples by stack/language without changing query intent.",
+      command: "tref --lang bash \"git@2.44 create branch\"",
+    },
+    {
+      icon: <Server className="h-6 w-6" />,
+      title: "Regression Gates",
+      description: "Golden-query eval command for CI and release confidence.",
+      command: "tref eval --index-root /tmp/tref-indexes --min-pass-rate 1.0",
+    },
+  ];
+
+  const examples = [
+    {
+      title: "Version Mapping + Structured Response",
+      command: "tref \"pandas@2.2.0 groupby\"",
+      output: `
+pandas@2.2 • DataFrame.groupby
+Version Notice: Requested '2.2.0', using '2.2' (compatible-normalized).
+Description
+Signature
+Parameters
+Gotchas & Version Notes
+Examples
+    `,
+    },
+    {
+      title: "Preferred Example Language",
+      command: "tref --lang bash \"git@2.44 create a new branch and switch\"",
+      output: `
+Examples
+Example 1
+Language  bash
+\`\`\`
+git switch -c feature/login-flow
+\`\`\`
+    `,
+    },
+    {
+      title: "Trust/Freshness Check",
+      command: "tref status",
+      output: `
+{
+  "freshness": {
+    "fresh": false,
+    "trusted": false,
+    "verified": false,
+    "verified_signature": false
+  }
+}
+    `,
+    },
+    {
+      title: "Quality Gate",
+      command: "tref eval --index-root /tmp/tref-indexes --min-pass-rate 1.0",
+      output: `
+{
+  "total": 7,
+  "passed": 7,
+  "failed": 0,
+  "pass_rate": 1.0
+}
+    `,
+    },
+  ];
+
+  const benefits = [
+    {
+      icon: <Server className="h-6 w-6" />,
+      title: "Fast & Local",
+      description:
+        "Runs locally with fast embeddings + FAISS. Offline after index sync.",
+    },
+    {
+      icon: <Shield className="h-6 w-6" />,
+      title: "Private & Secure",
+      description:
+        "Local-only retrieval plus explicit trust controls for updates.",
+    },
+    {
+      icon: <Zap className="h-6 w-6" />,
+      title: "Production Ready",
+      description:
+        "Intent-aware ranking, structured alternatives, and CI regression gates.",
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Header />
+
+      {/* Hero Section */}
+      <section className="relative overflow-hidden w-full px-0 py-20 md:py-32 text-center flex flex-col items-center justify-center min-h-[100vh]">
+        {/* Animated background gradient blob */}
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[120vw] h-[500px] bg-gradient-to-tr from-[#8B5CF6]/60 via-[#0EA5E9]/40 to-[#8B5CF6]/30 blur-3xl opacity-70 animate-pulse z-0" />
+        {/* Floating shapes */}
+        <div className="absolute top-10 left-10 w-24 h-24 bg-[#8B5CF6]/30 rounded-full blur-2xl animate-float-slow z-0" />
+        <div className="absolute bottom-10 right-10 w-32 h-32 bg-[#0EA5E9]/20 rounded-full blur-2xl animate-float-fast z-0" />
+        <div className="relative z-10 flex flex-col items-center w-full">
+          <div className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] p-6 rounded-2xl w-28 h-28 flex items-center justify-center shadow-2xl border-4 border-white/20 mb-6 animate-bounce-slow">
+            <Terminal className="h-16 w-16 text-white drop-shadow-lg" />
+          </div>
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] drop-shadow-xl tracking-tight">
+            tref
+          </h1>
+          <p className="text-2xl md:text-3xl text-[#8B5CF6] font-mono font-semibold mb-2 animate-fade-in">
+            Offline-first versioned developer reference.
+          </p>
+          <p className="text-lg md:text-xl text-slate-700 mb-8 max-w-xl mx-auto animate-fade-in delay-200">
+            Query `library@version` in plain English and get grounded answers with examples, cautions, and references.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12 animate-fade-in delay-300">
+            <Button
+              asChild
+              size="lg"
+              className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] text-white border-none hover:opacity-90 shadow-lg shadow-[#8B5CF6]/20"
+            >
+              <a
+                href="https://github.com/pavandhadge/tref"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Github className="mr-2 h-5 w-5" /> View on GitHub
+              </a>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              className="bg-gradient-to-r from-[#0EA5E9] to-[#8B5CF6] text-white border-none hover:opacity-90 shadow-lg shadow-[#0EA5E9]/20"
+            >
+              <a
+                href="https://github.com/pavandhadge/tref/releases"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Download className="mr-2 h-5 w-5" /> Download
+              </a>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="border-[#8B5CF6] text-[#8B5CF6] hover:bg-[#8B5CF6]/10 shadow"
+            >
+              <Link to="/docs">
+                📖 Read Documentation
+              </Link>
+            </Button>
+          </div>
+          <div className="flex justify-center animate-bounce mt-2">
+            <ArrowDown className="h-10 w-10 text-[#8B5CF6]" />
+          </div>
+        </div>
+      </section>
+
+      {/* About Section - New section with more information */}
+      <section className="w-full py-20 bg-gradient-to-br from-[#FAFAFA] via-[#F8F8FF] to-[#e9e6fa] border-t border-[#8B5CF6]/10">
+        <div className="max-w-6xl mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-center text-slate-800 mb-10">
+            Why{" "}
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9]">
+              tref
+            </span>
+            ?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {benefits.map((benefit, index) => (
+              <Card
+                key={index}
+                className="bg-white/90 p-6 shadow-xl hover:shadow-2xl transition-shadow border-0 backdrop-blur-md"
+              >
+                <div className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] p-3 rounded-lg w-14 h-14 flex items-center justify-center mb-4 text-white shadow-md">
+                  {benefit.icon}
+                </div>
+                <h3 className="text-xl font-semibold mb-2 text-slate-800">
+                  {benefit.title}
+                </h3>
+                <p className="text-slate-600 text-base leading-relaxed">
+                  {benefit.description}
+                </p>
+              </Card>
+            ))}
+          </div>
+          <div className="mt-12 text-center">
+            <p className="text-lg md:text-xl text-slate-700 max-w-2xl mx-auto mb-4 font-mono font-semibold">
+              Fast. Local. Private. Always at your fingertips.
+            </p>
+            <p className="text-slate-500 max-w-xl mx-auto text-base">
+              tref keeps your knowledge searchable and ready—no internet, no distractions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="w-full py-20 bg-gradient-to-br from-[#F8F8FF] via-[#e9e6fa] to-[#FAFAFA] border-t border-[#8B5CF6]/10">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="mb-8 text-start">
+            <h2 className="text-2xl md:text-3xl font-mono font-bold inline-block mb-2">
+              <span className="text-[#9b87f5]">$</span> tref{" "}
+              <span className="text-[#1EAEDB]">--features</span>
+            </h2>
+            <p className="text-slate-600 text-base max-w-2xl  mt-2 text-start">
+              Current CLI capabilities, trust controls, and quality gates for reliable usage in local and CI workflows.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <FeatureCard key={index} {...feature} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Examples Section */}
+      <section id="examples" className="w-full py-20 bg-gradient-to-br from-[#e9e6fa] via-[#F8F8FF] to-[#FAFAFA] border-t border-[#8B5CF6]/10">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="mb-10">
+            <h2 className="text-2xl md:text-3xl font-mono font-bold inline-block">
+              <span className="text-[#9b87f5]">$</span> tref{" "}
+              <span className="text-[#1EAEDB]">--examples</span>
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {examples.map((example, index) => (
+              <TerminalDemo
+                key={index}
+                title={example.title}
+                command={example.command}
+                output={example.output}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Download Section */}
+      <section id="download" className="w-full py-20 bg-gradient-to-br from-[#8B5CF6]/10 via-[#0EA5E9]/10 to-[#FAFAFA] border-t border-[#8B5CF6]/10">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9]">Download tref</h2>
+          <p className="text-lg text-slate-700 mb-8">Get the latest standalone executable or Python package for your platform. No installation hassle—just download and start using tref!</p>
+          <a
+            href="https://github.com/pavandhadge/tref/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block"
+          >
+            <Button size="lg" className="bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9] text-white text-xl px-10 py-6 shadow-lg hover:opacity-90">
+              <Download className="mr-3 h-7 w-7" /> Download Latest Release
+            </Button>
+          </a>
+          <p className="text-slate-500 mt-6">See <a href="https://github.com/pavandhadge/tref/releases" target="_blank" rel="noopener noreferrer" className="underline text-[#8B5CF6]">all releases on GitHub</a>.</p>
+        </div>
+      </section>
+
+      <Footer />
+    </div>
+  );
+};
+
+export default Index;
