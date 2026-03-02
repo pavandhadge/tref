@@ -6,3 +6,5 @@ build/
 tref.egg-info/
 reports
 .venv
+release
+.github
