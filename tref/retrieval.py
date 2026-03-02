@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
+from collections import OrderedDict
 from pathlib import Path
 
 import faiss
@@ -12,35 +14,40 @@ from fastembed import TextEmbedding
 from tref.config import EMBED_MODEL
 from tref.models import SearchResult
 
+TOKEN_RE = re.compile(r"[a-zA-Z0-9_.-]+")
+MAX_RETRIEVER_CACHE = 8
+
 
 def _build_embedder(model_name: str = EMBED_MODEL) -> TextEmbedding:
-    # Prefer GPU execution provider when available in runtime; fallback to CPU.
     try:
         return TextEmbedding(model_name=model_name, providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
     except TypeError:
-        # Older fastembed versions may not expose providers argument.
         return TextEmbedding(model_name=model_name)
     except Exception:
         return TextEmbedding(model_name=model_name)
 
 
+def _tokenize(text: str) -> set[str]:
+    return set(TOKEN_RE.findall(text.lower()))
+
+
 class Retriever:
     _embedder: TextEmbedding | None = None
-    _cache: dict[str, "Retriever"] = {}
+    _cache: "OrderedDict[str, Retriever]" = OrderedDict()
     _lock = threading.Lock()
 
     def __init__(self, index_dir: Path, model_name: str = EMBED_MODEL):
         self.index_dir = index_dir
         self.index = faiss.read_index(str(index_dir / "index.faiss"))
-        # If available FAISS can use multiple CPU threads for search.
         try:
             faiss.omp_set_num_threads(max(1, os.cpu_count() or 1))
         except Exception:
             pass
 
+        self.chunks = []
+        meta_path = index_dir / "meta.json"
+        self.index_meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
         with (index_dir / "chunks.jsonl").open("r", encoding="utf-8") as fh:
-            # Keep only fields needed at query time to reduce memory.
-            self.chunks = []
             for line in fh:
                 raw = json.loads(line)
                 self.chunks.append(
@@ -51,6 +58,7 @@ class Retriever:
                         "version": raw["version"],
                         "item": raw["item"],
                         "signature": raw["signature"],
+                        "query_text": f"{raw['item']} {raw['signature']} {raw['text']}",
                     }
                 )
 
@@ -63,22 +71,41 @@ class Retriever:
         with cls._lock:
             inst = cls._cache.get(key)
             if inst is not None:
+                cls._cache.move_to_end(key)
                 return inst
             inst = cls(index_dir=index_dir, model_name=model_name)
             cls._cache[key] = inst
+            while len(cls._cache) > MAX_RETRIEVER_CACHE:
+                cls._cache.popitem(last=False)
             return inst
+
+    def _hybrid_scores(self, query: str, scores: np.ndarray, indices: np.ndarray) -> list[tuple[float, int]]:
+        q_tokens = _tokenize(query)
+        ranked: list[tuple[float, int]] = []
+        for sem_score, idx in zip(scores, indices, strict=False):
+            if idx < 0:
+                continue
+            doc = self.chunks[int(idx)]
+            d_tokens = _tokenize(doc["query_text"])
+            overlap = len(q_tokens & d_tokens) / max(1, len(q_tokens))
+            # lightweight hybrid rank; semantic remains dominant.
+            hybrid = (0.85 * float(sem_score)) + (0.15 * float(overlap))
+            ranked.append((hybrid, int(idx)))
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        return ranked
 
     def search(self, query: str, top_k: int = 5) -> list[SearchResult]:
         vector = np.array(list(self._embedder.embed([query])), dtype="float32")
         faiss.normalize_L2(vector)
 
-        scores, indices = self.index.search(vector, top_k)
-        out: list[SearchResult] = []
+        # Over-fetch for lexical reranking.
+        fetch_k = min(max(top_k * 4, top_k), len(self.chunks))
+        scores, indices = self.index.search(vector, fetch_k)
+        ranked = self._hybrid_scores(query, scores[0], indices[0])[:top_k]
 
-        for score, idx in zip(scores[0], indices[0], strict=False):
-            if idx < 0:
-                continue
-            chunk = self.chunks[int(idx)]
+        out: list[SearchResult] = []
+        for score, idx in ranked:
+            chunk = self.chunks[idx]
             out.append(
                 SearchResult(
                     score=float(score),

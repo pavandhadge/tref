@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import statistics
+import time
+import tracemalloc
 from pathlib import Path
 from typing import Optional
 
@@ -8,16 +11,19 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
+from rich.table import Table
 
 from tref.api import ask
 from tref.config import (
     CUSTOM_INDEX_ROOT,
+    DEFAULT_FRESHNESS_POLICY,
     INDEX_ROOT,
     get_remote_settings,
     load_remote_config,
     reset_remote_config,
     save_remote_config,
 )
+from tref.errors import TrefError
 from tref.indexer import build_indexes
 from tref.kb import parse_library_version
 from tref.updater import freshness_status, update_indexes
@@ -30,21 +36,35 @@ app = typer.Typer(
 console = Console()
 
 
+class ExitCodes:
+    OK = 0
+    ERROR = 1
+    VALIDATION = 2
+    UPDATE = 3
+    DETECTION = 4
+
+
 def _print_results(payload: dict) -> None:
     if not payload["results"]:
         console.print("[yellow]No results found.[/yellow]")
         return
 
-    header = f"{payload['library']}@{payload['version']}  query: {payload['query']}"
     fresh = payload.get("freshness") or {}
-    if fresh:
-        if fresh.get("fresh", False):
-            header = f"{header}\nindex freshness: fresh (age_days={fresh.get('age_days', 0)})"
-        else:
-            header = f"{header}\nindex freshness: stale/unverified"
+    status_str = "fresh" if fresh.get("fresh", False) else "stale/unverified"
+    header = f"{payload['library']}@{payload['version']}  query: {payload['query']}\nindex freshness: {status_str}"
     console.print(Panel(header, title="tref", border_style="cyan"))
+
+    prov = payload.get("provenance") or {}
+    if prov:
+        prov_line = (
+            f"build_hash={prov.get('build_hash')} kb_commit={prov.get('kb_commit')} "
+            f"model={prov.get('embedding_model')} policy={prov.get('freshness_policy')}"
+        )
+        console.print(f"[blue]provenance:[/blue] {prov_line}")
+
     for warning in payload.get("warnings", []):
         console.print(f"[yellow]warning:[/yellow] {warning}")
+
     for idx, result in enumerate(payload["results"], start=1):
         title = f"{idx}. {result['item']}  score={result['score']:.3f}"
         body = f"[bold]Signature:[/bold] {result['signature']}\n[bold]Citation:[/bold] {result['citation']}"
@@ -55,6 +75,18 @@ def _print_results(payload: dict) -> None:
         console.print(Panel(payload["answer"], title="LLM Answer", border_style="magenta"))
 
 
+def _exit_for_error(exc: Exception) -> None:
+    if isinstance(exc, TrefError):
+        console.print(f"[red]{exc.code}[/red]: {exc.message}")
+        if exc.code.startswith("UPDATE"):
+            raise typer.Exit(code=ExitCodes.UPDATE)
+        if exc.code.startswith("DETECT"):
+            raise typer.Exit(code=ExitCodes.DETECTION)
+        raise typer.Exit(code=ExitCodes.VALIDATION)
+    console.print(f"[red]ERROR[/red]: {exc}")
+    raise typer.Exit(code=ExitCodes.ERROR)
+
+
 def _run_chat(
     library: str,
     version: Optional[str],
@@ -62,22 +94,27 @@ def _run_chat(
     model: str,
     index_root: Optional[Path],
     strict_fresh: bool,
+    freshness_policy: str,
 ) -> None:
     console.print(f"Chat mode for [bold]{library}@{version or 'latest'}[/bold]. Type 'exit' to quit.")
     while True:
         query = typer.prompt("query").strip()
         if query.lower() in {"exit", "quit", "q"}:
             break
-        payload = ask(
-            query,
-            library=library,
-            version=version,
-            llm=llm,
-            llm_model=model,
-            strict_fresh=strict_fresh,
-            json_mode=True,
-            index_root=index_root,
-        )
+        try:
+            payload = ask(
+                query,
+                library=library,
+                version=version,
+                llm=llm,
+                llm_model=model,
+                strict_fresh=strict_fresh,
+                freshness_policy=freshness_policy,
+                json_mode=True,
+                index_root=index_root,
+            )
+        except Exception as exc:
+            _exit_for_error(exc)
         _print_results(payload)
 
 
@@ -92,11 +129,13 @@ def main(
     llm: bool = typer.Option(False, "--llm", help="Generate final answer via Ollama."),
     chat: bool = typer.Option(False, "--chat", help="Interactive multi-query mode."),
     model: str = typer.Option("llama3.1:8b-instruct", "--model"),
-    strict_fresh: bool = typer.Option(
-        False,
-        "--strict-fresh",
-        help="Fail if freshness cannot be verified or local index is stale.",
+    strict_fresh: bool = typer.Option(False, "--strict-fresh", help="Fail when freshness cannot be ensured."),
+    freshness_policy: str = typer.Option(
+        DEFAULT_FRESHNESS_POLICY,
+        "--freshness-policy",
+        help="strict|warn|offline-only",
     ),
+    no_autodetect: bool = typer.Option(False, "--no-autodetect", help="Disable query-based library detection."),
     index_root: Optional[Path] = typer.Option(None, "--index-root", help="Override index root path."),
 ) -> None:
     if ctx.invoked_subcommand:
@@ -104,7 +143,7 @@ def main(
 
     if not query_parts and not chat:
         console.print(ctx.get_help())
-        raise typer.Exit(code=0)
+        raise typer.Exit(code=ExitCodes.OK)
 
     if query_parts and not library:
         parsed_library, parsed_version = parse_library_version(query_parts[0])
@@ -123,21 +162,27 @@ def main(
             model=model,
             index_root=index_root,
             strict_fresh=strict_fresh,
+            freshness_policy=freshness_policy,
         )
         return
 
     query = " ".join(query_parts).strip()
-    payload = ask(
-        query,
-        library=library,
-        version=version,
-        top_k=top_k,
-        json_mode=True,
-        llm=llm,
-        llm_model=model,
-        strict_fresh=strict_fresh,
-        index_root=index_root,
-    )
+    try:
+        payload = ask(
+            query,
+            library=library,
+            version=version,
+            top_k=top_k,
+            json_mode=True,
+            llm=llm,
+            llm_model=model,
+            strict_fresh=strict_fresh,
+            freshness_policy=freshness_policy,
+            no_autodetect=no_autodetect,
+            index_root=index_root,
+        )
+    except Exception as exc:
+        _exit_for_error(exc)
 
     if json_output:
         console.print_json(json.dumps(payload))
@@ -150,15 +195,74 @@ def update_cmd(
     strict_verify: bool = typer.Option(True, "--strict-verify/--no-strict-verify"),
 ) -> None:
     """Download latest prebuilt indexes from GitHub Releases."""
-    update_indexes(silent=False, strict_verify=strict_verify)
+    try:
+        update_indexes(silent=False, strict_verify=strict_verify)
+    except Exception as exc:
+        _exit_for_error(exc)
 
 
 @app.command("status")
 def status_cmd() -> None:
-    """Show index freshness state."""
+    """Show index freshness and remote state."""
     payload = {
         "freshness": freshness_status(),
         "remote": get_remote_settings(),
+    }
+    console.print_json(json.dumps(payload, indent=2))
+
+
+@app.command("doctor")
+def doctor_cmd() -> None:
+    """Run local diagnostics for trust/readiness."""
+    status = freshness_status()
+    remote = get_remote_settings()
+    table = Table(title="tref doctor")
+    table.add_column("Check")
+    table.add_column("Status")
+    table.add_column("Details")
+
+    table.add_row("Freshness", "OK" if status.get("fresh") else "WARN", json.dumps(status))
+    table.add_row("Verification", "OK" if status.get("verified") else "WARN", "verified flag from last update")
+    table.add_row("Remote", "OK", json.dumps(remote))
+    console.print(table)
+
+
+@app.command("bench")
+def bench_cmd(
+    query: str = typer.Argument(..., help="Benchmark query text"),
+    library: Optional[str] = typer.Option(None, "--library", "-l"),
+    version: Optional[str] = typer.Option(None, "--version", "-v"),
+    runs: int = typer.Option(20, "--runs", min=5, max=500),
+    index_root: Optional[Path] = typer.Option(None, "--index-root"),
+) -> None:
+    """Benchmark query latency and peak memory usage."""
+    latencies_ms: list[float] = []
+    tracemalloc.start()
+
+    for _ in range(runs):
+        start = time.perf_counter()
+        ask(
+            query,
+            library=library,
+            version=version,
+            json_mode=True,
+            freshness_policy="offline-only",
+            index_root=index_root,
+        )
+        elapsed = (time.perf_counter() - start) * 1000
+        latencies_ms.append(elapsed)
+
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    payload = {
+        "runs": runs,
+        "p50_ms": round(statistics.median(latencies_ms), 2),
+        "p95_ms": round(sorted(latencies_ms)[int(runs * 0.95) - 1], 2),
+        "min_ms": round(min(latencies_ms), 2),
+        "max_ms": round(max(latencies_ms), 2),
+        "mem_current_mb": round(current / (1024 * 1024), 3),
+        "mem_peak_mb": round(peak / (1024 * 1024), 3),
     }
     console.print_json(json.dumps(payload, indent=2))
 
@@ -178,6 +282,7 @@ def remote_set(
     kb_manifest_url: Optional[str] = typer.Option(None, "--kb-manifest-url"),
     release_asset_name: Optional[str] = typer.Option(None, "--release-asset-name"),
     release_checksum_asset_name: Optional[str] = typer.Option(None, "--release-checksum-asset-name"),
+    release_signature_asset_name: Optional[str] = typer.Option(None, "--release-signature-asset-name"),
 ) -> None:
     current = load_remote_config()
     updates = {}
@@ -189,6 +294,8 @@ def remote_set(
         updates["release_asset_name"] = release_asset_name
     if release_checksum_asset_name:
         updates["release_checksum_asset_name"] = release_checksum_asset_name
+    if release_signature_asset_name:
+        updates["release_signature_asset_name"] = release_signature_asset_name
     if not updates:
         raise typer.BadParameter("No values provided to set.")
     current.update(updates)
@@ -210,7 +317,10 @@ def build_index_cmd(
     output: Path = typer.Option(CUSTOM_INDEX_ROOT, "--output", "-o"),
 ) -> None:
     """Build FAISS indexes from KB markdown files."""
-    summary = build_indexes(kb_root=kb_path, output_root=output)
+    try:
+        summary = build_indexes(kb_root=kb_path, output_root=output)
+    except Exception as exc:
+        _exit_for_error(exc)
     console.print_json(json.dumps(summary))
 
 

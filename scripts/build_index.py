@@ -5,7 +5,7 @@ import argparse
 import json
 from pathlib import Path
 
-from tref.indexer import build_indexes
+from tref.indexer import build_indexes, validate_kb
 
 
 def main() -> None:
@@ -14,6 +14,9 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True, help="Output index root")
     args = parser.parse_args()
 
+    check = validate_kb(args.kb_path)
+    if not check["valid"]:
+        raise SystemExit(json.dumps(check, indent=2))
     summary = build_indexes(kb_root=args.kb_path, output_root=args.output)
     print(json.dumps(summary, indent=2))
 

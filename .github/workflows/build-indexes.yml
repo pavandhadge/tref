@@ -1,0 +1,40 @@
+name: build-indexes
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'kb/**'
+      - 'tref/indexer.py'
+      - 'scripts/build_index.py'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Build indexes
+        env:
+          SOURCE_DATE_EPOCH: '1735689600'
+          TREF_KB_COMMIT: ${{ github.sha }}
+        run: |
+          python scripts/build_index.py kb --output ./dist-indexes
+      - name: Pack indexes
+        run: |
+          tar -czf tref-indexes.tar.gz -C dist-indexes .
+          sha256sum tref-indexes.tar.gz | awk '{print $1}' > tref-indexes.tar.gz.sha256
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tref-indexes
+          path: |
+            tref-indexes.tar.gz
+            tref-indexes.tar.gz.sha256
+            dist-indexes/_manifest.json

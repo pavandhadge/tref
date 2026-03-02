@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Compile
+        run: python -m compileall tref scripts
+      - name: Smoke help
+        run: python -m tref --help
+
+  kb-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Validate KB
+        run: python scripts/validate_kb.py kb
+
+  perf-budget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Build local indexes
+        run: python scripts/build_index.py kb --output /tmp/tref-indexes
+      - name: Run benchmark
+        run: |
+          python -m tref --index-root /tmp/tref-indexes --freshness-policy offline-only --json pandas@2.2 "groupby multiple columns agg mean" > /tmp/tref_query.json
+          python -m tref bench "groupby multiple columns agg mean" --library pandas --version 2.2 --runs 20 > /tmp/tref_bench.json
+      - name: Enforce budget
+        run: |
+          python - << 'PY'
+          import json
+          from pathlib import Path
+          raw = Path('/tmp/tref_bench.json').read_text()
+          data = json.loads(raw)
+          p95 = data['p95_ms']
+          if p95 > 800:
+              raise SystemExit(f'Performance budget failed: p95_ms={p95} > 800')
+          print(f'Performance budget ok: p95_ms={p95}')
+          PY
