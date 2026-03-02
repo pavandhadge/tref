@@ -16,6 +16,14 @@
     "docker": {
       "versions": ["26.1", "26.1.0"],
       "latest": "26.1"
+    },
+    "algorithms": {
+      "versions": ["1.0", "1.0.0"],
+      "latest": "1.0"
+    },
+    "react": {
+      "versions": ["18", "18.0.0"],
+      "latest": "18"
     }
   }
 }

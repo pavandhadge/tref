@@ -4,3 +4,5 @@ dist/
 build/
 *.spec
 tref.egg-info/
+reports
+.venv
