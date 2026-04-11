@@ -1,5 +1,135 @@
 # tref
 
+## In-Depth Project Description
+
+`tref` is an offline-first developer documentation retrieval system delivered as both:
+
+- a CLI (`tref ...`) for interactive/local/CI usage
+- a Python API (`from tref import ask`) for programmatic integration
+
+The core problem it solves is deterministic doc retrieval for real engineering workflows. Instead of relying on generic web search or stale model memory, `tref` queries local, versioned knowledge snapshots (for example `pandas@2.2`, `git@2.44`) and returns structured guidance with provenance.
+
+### What Makes tref Different
+
+- Version-aware retrieval by design:
+  You can target exact or compatible versions and get explicit resolution notices when normalization/fallback happens.
+- Local-first runtime:
+  After indexes are present locally, query execution does not require network access.
+- Structured output contract:
+  Answers are shaped into practical sections (description/signature/parameters/returns/gotchas/examples/references/alternatives) rather than free-form text only.
+- Trust-aware update pipeline:
+  Snapshot updates support checksum validation, optional signature enforcement, and atomic replacement to avoid partial/corrupt states.
+- Operational quality gates:
+  Built-in regression evaluation (`tref eval`) enables repeatable quality checks before publishing KB/index updates.
+
+### End-to-End Query Lifecycle
+
+When you run a query, `tref` executes a retrieval pipeline with predictable stages:
+
+1. Parse input and command context.
+2. Detect or accept explicit library/version (`LIB@VER`).
+3. Resolve version via exact/compatible/latest rules.
+4. Load local index artifacts for resolved `library/version`.
+5. Run hybrid retrieval (semantic vector relevance + lexical overlap).
+6. Apply intent/section-aware reranking for practical guidance quality.
+7. Build a structured response payload.
+8. Render output in human CLI mode or machine JSON mode.
+
+This architecture separates retrieval correctness from presentation format, so the same core engine powers CLI and API consumers.
+
+### Core System Components
+
+- `tref/cli.py`:
+  Command routing, user-facing output formatting, and operational commands.
+- `tref/api.py`:
+  Main orchestration layer for detection, version resolution, retrieval, and response shaping.
+- `tref/retrieval.py`:
+  Index loading and hybrid retrieval/reranking logic.
+- `tref/indexer.py`:
+  KB parsing/validation and FAISS index creation from markdown knowledge files.
+- `tref/kb.py`:
+  Manifest handling, library/version metadata, and resolution helpers.
+- `tref/updater.py`:
+  Remote artifact fetch, verification checks, and atomic local index swap.
+
+### Data and Storage Model
+
+`tref` consumes curated markdown KB files (schema-driven) and compiles them into local retrieval artifacts.
+
+Per `library/version`, expected artifacts include:
+
+- `index.faiss`: vector index
+- `chunks.jsonl`: chunk text + metadata
+- `meta.json`: build metadata/config info
+
+Global root artifact:
+
+- `_manifest.json`: declares available libraries/versions and supports resolution logic
+
+This layout makes index loading explicit, inspectable, and easy to version in release workflows.
+
+### Retrieval and Ranking Strategy
+
+Retrieval is not pure vector similarity. `tref` combines:
+
+- semantic relevance from embeddings + FAISS search
+- lexical overlap signals for literal intent matching
+- section/intent-aware boosts to prioritize practical answer blocks
+
+This hybrid approach reduces common failure modes of naive semantic-only retrieval (for example missing exact flags, signatures, or version-specific caveats).
+
+### Output Contract and UX Philosophy
+
+`tref` aims to provide answers that are immediately executable by engineers:
+
+- signature first where applicable
+- concise explanation of behavior
+- practical examples (language-aware when requested)
+- gotchas and version notes surfaced explicitly
+- references and alternatives included for safe decision-making
+
+For automation and agents, `--json` provides structured machine-readable output.
+
+### Trust, Freshness, and Security Posture
+
+Remote index snapshots are treated as supply-chain artifacts, not casual downloads.
+
+- checksum validation is supported for integrity guarantees
+- optional signature requirement supports stronger authenticity policies
+- freshness/trust status is visible via `tref status`
+- update replacement is atomic to avoid half-applied states
+
+This enables safer adoption in CI, shared environments, and internal engineering platforms.
+
+### Configuration and Deployment Model
+
+`tref` supports layered configuration for practical operations:
+
+- built-in defaults
+- persisted user config (`~/.tref/config.json` by default)
+- remote override settings
+- environment-variable overrides
+
+The tool is designed for:
+
+- local terminals and developer laptops
+- containerized jobs
+- CI pipelines enforcing regression gates before KB/index promotion
+
+### KB Authoring System
+
+The KB authoring format is schema-driven (`schema_version: "2.0"`) and enforces:
+
+- required frontmatter metadata
+- required section names/order
+- strong source attribution and alternatives metadata
+
+This constraint is intentional. It improves retrieval quality, output consistency, and interoperability with LLM-assisted content generation pipelines.
+
+### Project Scope in One Line
+
+`tref` is a deterministic, trust-aware, versioned documentation retrieval engine for engineers who need reliable answers that map to real tool/library versions and operational workflows.
+
 `tref` is an offline-first CLI + Python library for versioned developer documentation retrieval.
 
 It answers natural language queries using curated KB files and local FAISS indexes.
