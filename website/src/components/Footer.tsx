@@ -22,7 +22,7 @@ const Footer = () => {
             <Github className="h-4 w-4" />
             github.com/pavandhadge/tref
           </a>
-          <p className="mt-4 text-xs text-slate-500">MIT License</p>
+          <p className="mt-4 text-xs text-slate-500">ApacheLicense</p>
         </div>
       </div>
     </footer>
